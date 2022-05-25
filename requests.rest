@@ -1,0 +1,41 @@
+POST http://localhost:3000/api/user/register
+Content-Type: application/json
+
+{
+    "username": "apple",
+    "email": "matthew@trentfamily.com",
+    "password": "123456"
+}
+
+###
+
+POST http://localhost:3000/api/user/login
+Content-Type: application/json
+
+{
+    "username": "apple",
+    "password": "123456"
+}
+
+###
+
+POST http://localhost:3000/api/user/token
+Content-Type: application/json
+
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTW9uZ29PYmplY3RJRCI6IjYyOGRkMzM5OThhMGZiZjExZGYyNjIwNyIsImlhdCI6MTY1MzQ4MTY0NiwiZXhwIjoxNjg1MDM5MjQ2fQ.GoIHR5hfQ0pH55FYYNlCosPcYj4prHHqM3P9SJAzcfs"
+}
+
+###
+
+DELETE http://localhost:3000/api/user/logout
+Content-Type: application/json
+
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTW9uZ29PYmplY3RJRCI6IjYyOGRkMzM5OThhMGZiZjExZGYyNjIwNyIsImlhdCI6MTY1MzQ2MTgxOSwiZXhwIjoxNjg1MDE5NDE5fQ.gllyzYJvNvwUIVWOC4iXfA5lu8sTGC_YFc0_b-QXt0Q"
+}
+
+###
+
+GET http://localhost:3000/api/posts/
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MjhkZDMzOTk4YTBmYmYxMWRmMjYyMDciLCJpYXQiOjE2NTM0NjczNDYsImV4cCI6MTY1MzQ2NzM2MX0.UFXIqMAj476F5NV6OtJoghxupK9B3oGRkHq_2NkDOZI
