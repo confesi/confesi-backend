@@ -78,7 +78,6 @@ router.post("/login", async (req, res) => {
         return res.status(500).send("ERROR: " + e);
     }
 
-
 });
 
 router.post("/token", async (req, res) => {
