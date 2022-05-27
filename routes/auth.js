@@ -91,7 +91,7 @@ router.post("/token", async (req, res) => {
         if (!foundRefreshToken?.token) return res.status(403).send("Refresh token not found in DB");
         if (foundRefreshToken.token !== refreshToken) return res.status(403).send("Refresh token given and one from DB don't match");
         const accessToken = generateAccessToken(ObjectID(user.userMongoObjectID));
-        res.json({accessToken});
+        res.status(200).json({accessToken});
     });
 });
 

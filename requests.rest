@@ -23,7 +23,7 @@ POST http://localhost:3000/api/user/token
 Content-Type: application/json
 
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTW9uZ29PYmplY3RJRCI6IjYyOGRkMzM5OThhMGZiZjExZGYyNjIwNyIsImlhdCI6MTY1MzQ4MTY0NiwiZXhwIjoxNjg1MDM5MjQ2fQ.GoIHR5hfQ0pH55FYYNlCosPcYj4prHHqM3P9SJAzcfs"
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTW9uZ29PYmplY3RJRCI6IjYyOGRkMzM5OThhMGZiZjExZGYyNjIwNyIsImlhdCI6MTY1MzY0NDI0NCwiZXhwIjoxNjg1MjAxODQ0fQ.yzGN3BAVlJGrId1Fqjgq_d4heWbyX8Uu0Y-gcQeE7CM"
 }
 
 ###
