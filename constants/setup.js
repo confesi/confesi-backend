@@ -1,6 +1,6 @@
 const PORT = 3000;
 const SALT_ROUNDS = 10;
-const ACCESS_TOKEN_LIFETIME = "15s"; // normally ~ "15m" - "30m" 
+const ACCESS_TOKEN_LIFETIME = "30m"; // normally ~ "15m" - "30m" 
 const REFRESH_TOKEN_LIFETIME = "1y";
 
 module.exports = {PORT, SALT_ROUNDS, ACCESS_TOKEN_LIFETIME, REFRESH_TOKEN_LIFETIME};

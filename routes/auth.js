@@ -71,16 +71,12 @@ router.post("/login", async (req, res) => {
         // Generate jwts
         const accessToken = generateAccessToken(ObjectID(user._id));
         const refreshToken = jwt.sign({userMongoObjectID: ObjectID(user._id)}, process.env.REFRESH_TOKEN_SECRET, { expiresIn: REFRESH_TOKEN_LIFETIME });
-        const foundRefreshToken = await RefreshToken.findOne({userID: ObjectID(user._id)});
-        // if (!foundRefreshToken) { 
+        await RefreshToken.findOne({userID: ObjectID(user._id)});
             const token = new RefreshToken({
                 token: refreshToken,
                 userID: ObjectID(user._id)
             });
             await token.save();
-        // } else {
-        //     await RefreshToken.findOneAndUpdate({userID: ObjectID(user._id)},{token: refreshToken},{new: true});
-        // }
         res.status(200).json({ accessToken: accessToken, refreshToken: refreshToken });
     }
     catch (e) {
@@ -108,8 +104,7 @@ router.delete("/logout", (req, res) => {
     jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, async (e, user) => {
         if (e) return res.status(403).send("Token tampered with");
         try {
-            const test = await RefreshToken.findOneAndDelete({userID: ObjectID(user.userMongoObjectID), token: refreshToken});
-            console.log("REMOVED (or left): " + test);
+            await RefreshToken.findOneAndDelete({userID: ObjectID(user.userMongoObjectID), token: refreshToken});
         }
         catch (error) {
             return res.status(500).send("Could not delete refresh token provided from DB");
