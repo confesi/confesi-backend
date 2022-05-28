@@ -2,9 +2,9 @@ POST http://localhost:3000/api/user/register
 Content-Type: application/json
 
 {
-    "username": "p3nis!",
-    "email": "matthew@trentfamily.com",
-    "password": "123456"
+    "username": "jay",
+    "email": "test@example.com",
+    "password": "qwerty"
 }
 
 ###
@@ -13,8 +13,8 @@ POST http://localhost:3000/api/user/login
 Content-Type: application/json
 
 {
-    "username": "apple",
-    "password": "123456"
+    "username": "jay",
+    "password": "qwerty"
 }
 
 ###
@@ -32,10 +32,20 @@ DELETE http://localhost:3000/api/user/logout
 Content-Type: application/json
 
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTW9uZ29PYmplY3RJRCI6IjYyOGRkMzM5OThhMGZiZjExZGYyNjIwNyIsImlhdCI6MTY1MzQ2MTgxOSwiZXhwIjoxNjg1MDE5NDE5fQ.gllyzYJvNvwUIVWOC4iXfA5lu8sTGC_YFc0_b-QXt0Q"
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTW9uZ29PYmplY3RJRCI6IjYyOTE5ZmIwYzg0YTFkNjc0ZGFjNzg4MyIsImlhdCI6MTY1MzcxMDg0NCwiZXhwIjoxNjg1MjY4NDQ0fQ.kqOekIpWs0CL22diLZo1Yp-0YfKRLfIUa4YNgNh4CWw"
+}
+
+
+###
+
+DELETE http://localhost:3000/api/user/logoutall
+Content-Type: application/json
+
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTW9uZ29PYmplY3RJRCI6IjYyOTE5ZmIwYzg0YTFkNjc0ZGFjNzg4MyIsImlhdCI6MTY1MzcxMDkyMCwiZXhwIjoxNjg1MjY4NTIwfQ.iqEjdJ52LBUGkaLct7ZijkakrpfqQacpm-dmX5b0wrE"
 }
 
 ###
 
 GET http://localhost:3000/api/posts/
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MjhkZDMzOTk4YTBmYmYxMWRmMjYyMDciLCJpYXQiOjE2NTM0NjczNDYsImV4cCI6MTY1MzQ2NzM2MX0.UFXIqMAj476F5NV6OtJoghxupK9B3oGRkHq_2NkDOZI
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MjkxOGY0MWY1NmExYzE5YWRkZmQ2Y2IiLCJpYXQiOjE2NTM3MDgzOTQsImV4cCI6MTY1MzcwODQwOX0.xkO29pEkzorDhdoIDv85gZ7fUYRLu0WVtYm9LD9_wJA

@@ -3,7 +3,7 @@ const authenticateToken = require("../lib/auth/authenticateToken");
 
 router.get("/", authenticateToken, (req, res) => {
     const userID = req.user.userID;
-    res.send("SUCCESS, userID = " + userID);
+    res.status(200).json(userID);
 }); 
 
 module.exports = router
