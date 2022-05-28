@@ -15,6 +15,10 @@ const generateAccessToken = require("../lib/auth/generateAccessToken");
 
 
 router.post("/register", async (req, res) => {
+    // Switches spaces to "_" and switch capitals to lowercase
+    const usernameClean = req.body.username.toLowerCase().replace(/ /g,'_');
+    // Make sure username only contains letters, numbers, dashes, and underscores
+    if (!usernameClean.match("^[a-zA-Z0-9_.-]*$")) return res.status(400).send("Username can only contain letters, numbers, dashes, and underscores");
 
     // Validate
     const { error } = registerValidation(req.body);
@@ -22,7 +26,7 @@ router.post("/register", async (req, res) => {
 
     // Checking is user already exists (username)
     try {
-        const usernameExists = await User.findOne({username: req.body.username});
+        const usernameExists = await User.findOne({username: usernameClean});
         if (usernameExists) return res.status(400).send("Username already taken");
     } catch (e) {
         return res.status(500).send("Error querying DB to check if username exists or not");
@@ -33,7 +37,7 @@ router.post("/register", async (req, res) => {
         const hashedPassword = await bcrypt.hash(req.body.password, SALT_ROUNDS);
         // Submitting user to DB
         const user = new User({
-            username: req.body.username,
+            username: usernameClean,
             email: req.body.email,
             password: hashedPassword,
         });
@@ -71,7 +75,6 @@ router.post("/login", async (req, res) => {
         } else {
             await RefreshToken.findOneAndUpdate({userID: ObjectID(user._id)},{token: refreshToken},{new: true});
         }
-        // res.status(200).json({ accessToken: accessToken, refreshToken: refreshToken, username: user.username, refreshTokenInDB });
         res.status(200).json({ accessToken: accessToken, refreshToken: refreshToken });
     }
     catch (e) {

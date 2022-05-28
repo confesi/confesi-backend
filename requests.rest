@@ -2,7 +2,7 @@ POST http://localhost:3000/api/user/register
 Content-Type: application/json
 
 {
-    "username": "apple",
+    "username": "p3nis!",
     "email": "matthew@trentfamily.com",
     "password": "123456"
 }
