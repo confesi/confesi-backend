@@ -12,12 +12,14 @@ const userSchema = new mongoose.Schema({
         required: true,
         minlength: 5,
         maxlength: 255,
+        // index: {unique: true}
     },
     username: {
         type: String,
         required: true,
         minlength: 3,
         maxlength: 30,
+        // index: {unique: true}
     },
     date: {
         type: Date,

@@ -16,21 +16,29 @@ const generateAccessToken = require("../lib/auth/generateAccessToken");
 
 
 router.post("/register", async (req, res) => {
-    // Switches spaces to "_" and switch capitals to lowercase
-    const usernameClean = req.body.username.toLowerCase().replace(/ /g,'_');
+
+    if (req.body.email == null || req.body.username == null || req.body.password == null) return res.status(400).send("Request must include data");
+
+    // Trim off white space, and set to lowercase
+    const username = req.body.username.replace(/ /g,'').toLowerCase();
+    const email = req.body.email.replace(/ /g,'').toLowerCase();
+
     // Make sure username only contains letters, numbers, dashes, and underscores
-    if (!usernameClean.match("^[a-zA-Z0-9_.-]*$")) return res.status(400).send("Username can only contain letters, numbers, dashes, and underscores");
+    if (!username.match("^[a-zA-Z0-9_.-]*$")) return res.status(400).send("Username can only contain letters, numbers, dashes, and underscores");
 
     // Validate
     const { error } = registerValidation(req.body);
     if (error) return res.status(400).send(error.details[0].message);
 
-    // Checking is user already exists (username)
+    // Checking is user already exists (username & email)
     try {
-        const usernameExists = await User.findOne({username: usernameClean});
+        const usernameExists = await User.findOne({username: username});
+        const emailExists = await User.findOne({email: email});
+        if (usernameExists && emailExists) return res.status(400).send("Username and email already taken");
+        if (emailExists) return res.status(400).send("Email already taken");
         if (usernameExists) return res.status(400).send("Username already taken");
     } catch (e) {
-        return res.status(500).send("Error querying DB to check if username exists or not");
+        return res.status(500).send("Error querying DB to check if username/email exists or not");
     }
 
     // Hashing user's password
@@ -38,8 +46,8 @@ router.post("/register", async (req, res) => {
         const hashedPassword = await bcrypt.hash(req.body.password, SALT_ROUNDS);
         // Submitting user to DB
         const user = new User({
-            username: usernameClean,
-            email: req.body.email,
+            username: username,
+            email: email,
             password: hashedPassword,
         });
         const savedUser = await user.save();
@@ -88,6 +96,7 @@ router.post("/login", async (req, res) => {
 });
 
 router.post("/token", async (req, res) => {
+    console.log("TOKEN ROUTE CALLED");
     // UNCOMMENT THE LINE BELOW TO TEST NEW USERS (and comment everything else to avoid crash)
     // res.status(402).send("temporary testing");
     const refreshToken = req.body.token;
