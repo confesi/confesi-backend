@@ -51,6 +51,8 @@ router.post("/register", async (req, res) => {
 
 router.post("/login", async (req, res) => {
 
+    if (!req.body) return res.status(400).send("No data");
+
     // Switches spaces to "_" and switch capitals to lowercase
     const usernameClean = req.body.username.toLowerCase().replace(/ /g,'_');
     // Make sure username only contains letters, numbers, dashes, and underscores
@@ -86,6 +88,8 @@ router.post("/login", async (req, res) => {
 });
 
 router.post("/token", async (req, res) => {
+    // UNCOMMENT THE LINE BELOW TO TEST NEW USERS (and comment everything else to avoid crash)
+    // res.status(402).send("temporary testing");
     const refreshToken = req.body.token;
     if (!refreshToken) return res.status(401).send("No refresh token given");
     jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, async (e, user) => {
@@ -100,9 +104,12 @@ router.post("/token", async (req, res) => {
 });
 
 router.delete("/logout", (req, res) => {
+    console.log("/LOGOUT route CALLED FROM SERVER!!!!!");
+    // UNCOMMENT LINE BELOW TO SIMULATE ERROR (and comment everything else)
+    // return res.status(500).send("Could not delete refresh token provided from DB");
     const refreshToken = req.body.token;
     jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, async (e, user) => {
-        if (e) return res.status(403).send("Token tampered with");
+        if (e) return res.status(403).send("Token tampered with or expired");
         try {
             await RefreshToken.findOneAndDelete({userID: ObjectID(user.userMongoObjectID), token: refreshToken});
         }

@@ -1,8 +1,10 @@
+// Pure communication with the backend through API routes (primarily for testing)
+
 POST http://localhost:3000/api/user/register
 Content-Type: application/json
 
 {
-    "username": "jay",
+    "username": "matt",
     "email": "test@example.com",
     "password": "qwerty"
 }
@@ -13,7 +15,7 @@ POST http://localhost:3000/api/user/login
 Content-Type: application/json
 
 {
-    "username": "jay",
+    "username": "matt",
     "password": "qwerty"
 }
 
@@ -23,7 +25,7 @@ POST http://localhost:3000/api/user/token
 Content-Type: application/json
 
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTW9uZ29PYmplY3RJRCI6IjYyOGRkMzM5OThhMGZiZjExZGYyNjIwNyIsImlhdCI6MTY1MzY0NzQ4NiwiZXhwIjoxNjg1MjA1MDg2fQ.3a8cpjFojZW2x5muXsVMV_IAv9mpTgckrPHw2lkbFxs"
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTW9uZ29PYmplY3RJRCI6IjYyOTg2ZDBhYWQyZDI3MjI1ZjFhZGI2NSIsImlhdCI6MTY1NTI4NDM1MiwiZXhwIjoxNjg2ODQxOTUyfQ.2S6TPf453SDMduszWPfBFveSf-xg3x36GlerdvJ0wJM"
 }
 
 ###
@@ -48,4 +50,4 @@ Content-Type: application/json
 ###
 
 GET http://localhost:3000/api/posts/
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MjkxOGY0MWY1NmExYzE5YWRkZmQ2Y2IiLCJpYXQiOjE2NTM3MDgzOTQsImV4cCI6MTY1MzcwODQwOX0.xkO29pEkzorDhdoIDv85gZ7fUYRLu0WVtYm9LD9_wJA
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2Mjk4NmQwYWFkMmQyNzIyNWYxYWRiNjUiLCJpYXQiOjE2NTUyODQzNjYsImV4cCI6MTY1NTI4NjE2Nn0.dKb86QgoXPVTGJ8iceVDbz6rTPZnj9qaCIbet0I0AGY
