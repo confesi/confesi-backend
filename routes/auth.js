@@ -17,6 +17,7 @@ const generateAccessToken = require("../lib/auth/generateAccessToken");
 
 router.post("/register", async (req, res) => {
 
+    // Ensures sending nothing doesn't crash the server
     if (req.body.email == null || req.body.username == null || req.body.password == null) return res.status(400).send("Request must include data");
 
     // Trim off white space, and set to lowercase
@@ -59,21 +60,27 @@ router.post("/register", async (req, res) => {
 
 router.post("/login", async (req, res) => {
 
-    if (!req.body) return res.status(400).send("No data");
+    // Ensures sending nothing doesn't crash the server
+    if (req.body.usernameOrEmail == null || req.body.password == null) return res.status(400).send("Request must include data");
 
-    // Switches spaces to "_" and switch capitals to lowercase
-    const usernameClean = req.body.username.toLowerCase().replace(/ /g,'_');
-    // Make sure username only contains letters, numbers, dashes, and underscores
-    if (!usernameClean.match("^[a-zA-Z0-9_.-]*$")) return res.status(400).send("Username can only contain letters, numbers, dashes, and underscores");
+    // Trim off white space, and set to lowercase
+    const usernameOrEmail = req.body.usernameOrEmail.replace(/ /g,'').toLowerCase();
 
     // Validate
     const { error } = loginValidation(req.body);
     if (error) return res.status(400).send(error.details[0].message);
 
-     // Checking is account exists (username)
+     // Checking is account exists (username & email)
      try {
-        const user = await User.findOne({username: usernameClean});
-        if (!user) return res.status(400).send("Account (username) doesn't exist");
+        // Checks if it's an email
+        var user;
+        if (usernameOrEmail.includes("@")) {
+            user = await User.findOne({email: usernameOrEmail});
+        } else {
+        // Checks if it's a username
+        user = await User.findOne({username: usernameOrEmail});
+        }
+        if (!user) return res.status(400).send("Account (username or email) doesn't exist");
 
         // Checking if password is correct for that account
         const validPassword = await bcrypt.compare(req.body.password, user.password);
