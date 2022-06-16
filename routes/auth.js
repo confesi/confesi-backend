@@ -54,21 +54,21 @@ router.post("/register", async (req, res) => {
         const savedUser = await user.save();
         res.send(`${savedUser.username} successfully created`);
     } catch (e) {
-        return res.status(500).send("Error hashing password or submitting user to DB");
+        return res.status(500).send("Error hashing password or submitting user to DB" + e);
     }
 });
 
 router.post("/login", async (req, res) => {
 
     // Ensures sending nothing doesn't crash the server
-    if (req.body.usernameOrEmail == null || req.body.password == null) return res.status(400).send("Request must include data");
+    if (req.body.usernameOrEmail == null || req.body.password == null) return res.status(400).json({"error": "fields cannot be blank"});
 
     // Trim off white space, and set to lowercase
     const usernameOrEmail = req.body.usernameOrEmail.replace(/ /g,'').toLowerCase();
 
-    // Validate
-    const { error } = loginValidation(req.body);
-    if (error) return res.status(400).send(error.details[0].message);
+    // Validate - TEMPORARLY COMMENTING OUT BECAUSE I DON'T NEED FOR LOGIN (I HANDLE THIS BELOW)
+    // const { error } = loginValidation(req.body);
+    // if (error) return res.status(400).send(error.details[0].message);
 
      // Checking is account exists (username & email)
      try {
@@ -80,11 +80,11 @@ router.post("/login", async (req, res) => {
         // Checks if it's a username
         user = await User.findOne({username: usernameOrEmail});
         }
-        if (!user) return res.status(400).send("Account (username or email) doesn't exist");
+        if (!user) return res.status(400).json({"error": "account doesn't exist"});
 
         // Checking if password is correct for that account
         const validPassword = await bcrypt.compare(req.body.password, user.password);
-        if (!validPassword) return res.status(400).send("Invalid password");
+        if (!validPassword) return res.status(400).json({"error": "password incorrect"});
         // Generate jwts
         const accessToken = generateAccessToken(ObjectID(user._id));
         const refreshToken = jwt.sign({userMongoObjectID: ObjectID(user._id)}, process.env.REFRESH_TOKEN_SECRET, { expiresIn: REFRESH_TOKEN_LIFETIME });
@@ -97,7 +97,7 @@ router.post("/login", async (req, res) => {
         res.status(200).json({ accessToken: accessToken, refreshToken: refreshToken });
     }
     catch (e) {
-        return res.status(500).send("ERROR: " + e);
+        return res.status(500).json({"error": e});
     }
 
 });
