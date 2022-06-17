@@ -60,6 +60,7 @@ router.post("/register", async (req, res) => {
 
 router.post("/login", async (req, res) => {
 
+
     // Ensures sending nothing doesn't crash the server
     if (!req.body.usernameOrEmail || !req.body.password) return res.status(400).json({"error": "fields cannot be blank"});
 
@@ -69,6 +70,7 @@ router.post("/login", async (req, res) => {
      // Checking is account exists (username & email)
      try {
         // Checks if it's an email
+
         var user;
         if (usernameOrEmail.includes("@")) {
             user = await User.findOne({email: usernameOrEmail});
@@ -81,8 +83,10 @@ router.post("/login", async (req, res) => {
         // Checking if password is correct for that account
         const validPassword = await bcrypt.compare(req.body.password, user.password);
         if (!validPassword) return res.status(400).json({"error": "password incorrect"});
+
         // Generate jwts
-        const {accessToken, refreshToken} = await generateJWTAndSaveToDB(createdUser);
+        const {accessToken, refreshToken} = await generateJWTAndSaveToDB(user);
+
         if (accessToken == null || refreshToken == null) return res.status(500).json({"error": "error getting/savings tokens"});
         res.status(200).json({ accessToken: accessToken, refreshToken: refreshToken });
     }
