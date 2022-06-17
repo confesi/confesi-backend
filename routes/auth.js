@@ -5,39 +5,36 @@
 const router = require("express").Router();
 const User = require("../models/User");
 const RefreshToken = require("../models/RefreshToken");
-const registerValidation = require("../validation/register");
-const loginValidation = require("../validation/login");
+const registerValidation = require("../custom_validation/register");
 const bcrypt = require("bcrypt");
-const { SALT_ROUNDS, REFRESH_TOKEN_LIFETIME } = require("../constants/setup");
+const { SALT_ROUNDS } = require("../constants/setup");
 const jwt = require('jsonwebtoken');
 const ObjectID = require('mongodb').ObjectId;
 const generateAccessToken = require("../lib/auth/generateAccessToken");
+const generateJWTAndSaveToDB = require("../lib/auth/generateJWTAndSaveToDB");
 
 
 
 router.post("/register", async (req, res) => {
 
     // Ensures sending nothing doesn't crash the server
-    if (req.body.email == null || req.body.username == null || req.body.password == null) return res.status(400).send("Request must include data");
+    if (!req.body.email || !req.body.username || !req.body.password) return res.status(400).json({"error": "fields cannot be blank"});
 
     // Trim off white space, and set to lowercase
     const username = req.body.username.replace(/ /g,'').toLowerCase();
     const email = req.body.email.replace(/ /g,'').toLowerCase();
 
-    // Make sure username only contains letters, numbers, dashes, and underscores
-    if (!username.match("^[a-zA-Z0-9_.-]*$")) return res.status(400).send("Username can only contain letters, numbers, dashes, and underscores");
-
     // Validate
-    const { error } = registerValidation(req.body);
-    if (error) return res.status(400).send(error.details[0].message);
+    const error = registerValidation(req.body.email, req.body.username, req.body.password);
+    if (error) return res.status(400).json({"error": error});
 
     // Checking is user already exists (username & email)
     try {
         const usernameExists = await User.findOne({username: username});
         const emailExists = await User.findOne({email: email});
-        if (usernameExists && emailExists) return res.status(400).send("Username and email already taken");
-        if (emailExists) return res.status(400).send("Email already taken");
-        if (usernameExists) return res.status(400).send("Username already taken");
+        if (usernameExists && emailExists) return res.status(400).json({"error": "email and username taken"});
+        if (emailExists) return res.status(400).json({"error": "email already taken"});
+        if (usernameExists) return res.status(400).json({"error": "username already taken"});
     } catch (e) {
         return res.status(500).send("Error querying DB to check if username/email exists or not");
     }
@@ -51,24 +48,23 @@ router.post("/register", async (req, res) => {
             email: email,
             password: hashedPassword,
         });
-        const savedUser = await user.save();
-        res.send(`${savedUser.username} successfully created`);
+        const createdUser = await user.save();
+        const {accessToken, refreshToken} = await generateJWTAndSaveToDB(createdUser);
+        if (accessToken == null || refreshToken == null) return res.status(400).json({"error": "created user, but not tokens in DB"});
+        res.status(201).json({ accessToken: accessToken, refreshToken: refreshToken });;
+        // res.send(`${savedUser.username} successfully created`);
     } catch (e) {
-        return res.status(500).send("Error hashing password or submitting user to DB" + e);
+        return res.status(500).json({"error": "error creating user"});
     }
 });
 
 router.post("/login", async (req, res) => {
 
     // Ensures sending nothing doesn't crash the server
-    if (req.body.usernameOrEmail == null || req.body.password == null) return res.status(400).json({"error": "fields cannot be blank"});
+    if (!req.body.usernameOrEmail || !req.body.password) return res.status(400).json({"error": "fields cannot be blank"});
 
     // Trim off white space, and set to lowercase
     const usernameOrEmail = req.body.usernameOrEmail.replace(/ /g,'').toLowerCase();
-
-    // Validate - TEMPORARLY COMMENTING OUT BECAUSE I DON'T NEED FOR LOGIN (I HANDLE THIS BELOW)
-    // const { error } = loginValidation(req.body);
-    // if (error) return res.status(400).send(error.details[0].message);
 
      // Checking is account exists (username & email)
      try {
@@ -86,14 +82,8 @@ router.post("/login", async (req, res) => {
         const validPassword = await bcrypt.compare(req.body.password, user.password);
         if (!validPassword) return res.status(400).json({"error": "password incorrect"});
         // Generate jwts
-        const accessToken = generateAccessToken(ObjectID(user._id));
-        const refreshToken = jwt.sign({userMongoObjectID: ObjectID(user._id)}, process.env.REFRESH_TOKEN_SECRET, { expiresIn: REFRESH_TOKEN_LIFETIME });
-        await RefreshToken.findOne({userID: ObjectID(user._id)});
-            const token = new RefreshToken({
-                token: refreshToken,
-                userID: ObjectID(user._id)
-            });
-            await token.save();
+        const {accessToken, refreshToken} = await generateJWTAndSaveToDB(createdUser);
+        if (accessToken == null || refreshToken == null) return res.status(500).json({"error": "error getting/savings tokens"});
         res.status(200).json({ accessToken: accessToken, refreshToken: refreshToken });
     }
     catch (e) {
