@@ -1,18 +1,19 @@
 const mongoose = require("mongoose");
-
+  
 const refreshTokenSchema = new mongoose.Schema({
-    token: {
-        type: String,
-        required: true,
-    },
-    userID: {
+    user_ID: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
     },
-    date: {
+    refresh_token: {
+        type: String,
+        required: true,
+        unique: true, // Maybe not unique? Across different devices?
+    },
+    created_date: {
         type: Date,
         default: Date.now,
-    }
+    },
 });
 
 module.exports = mongoose.model("RefreshToken", refreshTokenSchema);

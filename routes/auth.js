@@ -105,9 +105,9 @@ router.post("/token", async (req, res) => {
     jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, async (e, user) => {
         if (e) return res.status(403).send("Token tampered with");
         // check if given token is in its respective user's token field, if not, return "no access!"
-        const foundRefreshToken = await RefreshToken.findOne({userID: ObjectID(user.userMongoObjectID), token: refreshToken});
-        if (!foundRefreshToken?.token) return res.status(403).send("Refresh token not found in DB");
-        if (foundRefreshToken.token !== refreshToken) return res.status(403).send("Refresh token and one from DB don't match");
+        const foundRefreshToken = await RefreshToken.findOne({user_ID: ObjectID(user.userMongoObjectID), refresh_token: refreshToken});
+        if (!foundRefreshToken?.refresh_token) return res.status(403).send("Refresh token not found in DB");
+        if (foundRefreshToken.refresh_token !== refreshToken) return res.status(403).send("Refresh token and one from DB don't match");
         const accessToken = generateAccessToken(ObjectID(user.userMongoObjectID));
         res.status(200).json({accessToken});
     });
@@ -121,7 +121,7 @@ router.delete("/logout", (req, res) => {
     jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, async (e, user) => {
         if (e) return res.status(403).send("Token tampered with or expired");
         try {
-            await RefreshToken.findOneAndDelete({userID: ObjectID(user.userMongoObjectID), token: refreshToken});
+            await RefreshToken.findOneAndDelete({user_ID: ObjectID(user.userMongoObjectID), refresh_token: refreshToken});
         }
         catch (error) {
             return res.status(500).send("Could not delete refresh token provided from DB");
@@ -137,7 +137,7 @@ router.delete("/logoutall", (req, res) => {
         if (e) return res.status(403).send("Token tampered with");
         try {
             // removes all refresh tokens in the database corresponding to the user (on next call from their devices it'll log them out)
-            await RefreshToken.remove({userID: ObjectID(user.userMongoObjectID)});
+            await RefreshToken.remove({user_ID: ObjectID(user.userMongoObjectID)});
         }
         catch (error) {
             return res.status(500).send("Could not delete refresh token provided from DB");
