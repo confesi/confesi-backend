@@ -62,3 +62,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFjN
   "university": "UVIC",
   "body": "hello this is my post"
 }
+
+###
+
+POST http://localhost:3000/api/posts/retrieve
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTU3MTE3NTQsImV4cCI6MTY1NTcxMzU1NH0.VlpDNy7TJzsOlsNMJE7AP9ipI_CU5UxqgdscRD2_G7w
+
+{
+  "number_of_posts": 2
+}
