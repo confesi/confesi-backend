@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { ObjectId } = require("mongodb");
 const authenticateToken = require("../lib/auth/authenticateToken");
 const Post = require("../models/Post");
+const { NUMBER_OF_POSTS_TO_RETURN_PER_CALL } = require("../constants/setup");
 
 router.get("/", authenticateToken, (req, res) => {
   const userID = req.user.userID;
@@ -33,9 +34,10 @@ router.post("/create", authenticateToken, async (req, res) => {
 // could someone technically get their access token and just send via postman to this address and change the fields they want?
 router.post("/retrieve", authenticateToken, async (req, res) => {
 
-    // Ensures sending nothing doesn't crash the server.
-    if (!req.body.number_of_posts || req.body.number_of_posts > 50) return res.status(400).json({"error": "fields cannot be blank and must be inside bounds"});
+    // Ensures sending nothing doesn't crash the server. (ADD WHEN I NEED VALIDATIOn)
+    // if (!req.body.number_of_posts || req.body.number_of_posts > 50) return res.status(400).json({"error": "fields cannot be blank and must be inside bounds"});
 
+    // NOT SECURE CUZ NOT DOING "const { xyz } = req.body"??
     var last_post_viewed_id;
     if (!req.body.last_post_viewed_id) {
         last_post_viewed_id = "000000000000000000000000"; // simulates starting from the beginning
@@ -43,7 +45,7 @@ router.post("/retrieve", authenticateToken, async (req, res) => {
         last_post_viewed_id = req.body.last_post_viewed_id;
     }
 
-    const foundPosts = await Post.find({_id: { $gt: ObjectId(last_post_viewed_id) }}).limit(req.body.number_of_posts);    
+    const foundPosts = await Post.find({_id: { $gt: ObjectId(last_post_viewed_id) }}).limit(NUMBER_OF_POSTS_TO_RETURN_PER_CALL);    
 
     res.status(200).json({"posts": foundPosts});
 });

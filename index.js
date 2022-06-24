@@ -8,6 +8,7 @@ const cors = require("cors");
 // Routes
 const authRoute = require("./routes/auth");
 const postsRoute = require("./routes/posts");
+const searchRoute = require("./routes/search");
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use(cors({
 app.use(express.json());
 app.use("/api/user", authRoute);
 app.use("/api/posts", postsRoute);
+app.use("/api/search", searchRoute);
 
 
 
