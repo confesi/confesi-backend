@@ -4,8 +4,8 @@ POST http://localhost:3000/api/user/register
 Content-Type: application/json
 
 {
-    "username": "joe",
-    "email": "joe@gmail.com",
+    "username": "mamdaat",
+    "email": "d11id12d00@gmail.com",
     "password": "password"
 }
 
@@ -56,11 +56,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2Mjk4N
 
 POST http://localhost:3000/api/posts/create
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFjNWYzOTc2MmY4MGNlYTI0NmU0YzUiLCJpYXQiOjE2NTU1MzU0NzMsImV4cCI6MTY1NTUzNzI3M30.U3AFfrGKcGpSsOZ__ZalyysOOYerKZfVDTDi7332aos
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTYxNTU1NTAsImV4cCI6MTY1NjE1NzM1MH0.SCKYHfyh3hNCTESlp6al64HtLYC_GMnqqys66fLPWAQ
 
 {
-  "university": "UVIC",
-  "body": "hello this is my post"
+  "genre": "Relationshipsd",
+  "body": "Nam aliquet tempus ipsum, eu pharetra ex sagittis vitae. Aliquam a risus sed nisl volutpat egestas ut sed nulla. Aenean vitae risus vel nisl dignissim elementum. Phasellus nibh nulla, dictum vestibulum massa in, hendrerit rutrum dolor. Suspendisse in neque eget purus mattis imperdiet sed ac augue. Sed vulputate bibendum lorem, ac tincidunt metus ullamcorper maximus. Nam eu ex tincidunt, fermentum tellus et, consequat nisi. Maecenas leo purus, placerat id imperdiet a, semper vitae diam."
 }
 
 ###
@@ -72,10 +72,10 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZ
 
 ###
 
-GET http://localhost:3000/api/search/users
+POST http://localhost:3000/api/search/users
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTYwNDc5NzUsImV4cCI6MTY1NjA0OTc3NX0.YwkUIRpgh1Rls1Bo00goPcJthXn1ZxNAkN81zqUFsk4
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTYxMjgyNDgsImV4cCI6MTY1NjEzMDA0OH0.ipptPHtT4g7CHEtt5xEtOH4LOIKuCbnflAvI7vzYEts
 
 {
-  "username": "mat"
+  "username": "m2att"
 }
