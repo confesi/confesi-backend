@@ -12,12 +12,12 @@ const postSchema = new mongoose.Schema({
     },
     genre: {
         type: String,
-        enum: ["RELATIONSHIPS", "POLITICS", "CLASSES", "GENERAL"],
+        enum: ["RELATIONSHIPS", "POLITICS", "CLASSES", "GENERAL", "OPINIONS", "CONFESSIONS"],
         required: true,
     },
     faculty: {
         type: String,
-        enum: ["ENGINEERING", "ARTS", "COMPUTER_SCIENCE", "BUSINESS"],
+        enum: ["LAW", "ENGINEERING", "FINE_ARTS", "COMPUTER_SCIENCE", "BUSINESS", "EDUCATION", "MEDICAL", "HUMAN_AND_SOCIAL_DEVELOPMENT", "HUMANITIES", "SCIENCE", "SOCIAL_SCIENCES"],
         required: true,
     },
     reports: {

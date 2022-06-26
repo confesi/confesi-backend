@@ -56,25 +56,25 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2Mjk4N
 
 POST http://localhost:3000/api/posts/create
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTYxNTU1NTAsImV4cCI6MTY1NjE1NzM1MH0.SCKYHfyh3hNCTESlp6al64HtLYC_GMnqqys66fLPWAQ
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTYyNDE1MDcsImV4cCI6MTY1NjI0MzMwN30.l8dJKhdI91kObbwGx33jxLxns7w2POL7mVUkmqVEIJI
 
 {
   "genre": "Relationshipsd",
-  "body": "Nam aliquet tempus ipsum, eu pharetra ex sagittis vitae. Aliquam a risus sed nisl volutpat egestas ut sed nulla. Aenean vitae risus vel nisl dignissim elementum. Phasellus nibh nulla, dictum vestibulum massa in, hendrerit rutrum dolor. Suspendisse in neque eget purus mattis imperdiet sed ac augue. Sed vulputate bibendum lorem, ac tincidunt metus ullamcorper maximus. Nam eu ex tincidunt, fermentum tellus et, consequat nisi. Maecenas leo purus, placerat id imperdiet a, semper vitae diam."
+  "body": "I wonder if this will be loaded when I press load more...?"
 }
 
 ###
 
 POST http://localhost:3000/api/posts/retrieve
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTU5ODUwMjQsImV4cCI6MTY1NTk4NjgyNH0.jd4zdbRys3auZxYcNOBNH1gRDeprXKUP2My7R-dtHcc
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTYyMzkxMjEsImV4cCI6MTY1NjI0MDkyMX0.yYd8qZ9BGJpn9VEOrHUN5TWwu7asnR_R_OCkuFk-ra0
 
 
 ###
 
 POST http://localhost:3000/api/search/users
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTYxMjgyNDgsImV4cCI6MTY1NjEzMDA0OH0.ipptPHtT4g7CHEtt5xEtOH4LOIKuCbnflAvI7vzYEts
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTYyMzUyNzgsImV4cCI6MTY1NjIzNzA3OH0.u9B57zxgehC5IyA3Kaw4271n_NK1sV9uCzKs_SpvmCc
 
 {
   "username": "m2att"
