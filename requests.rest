@@ -56,19 +56,23 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2Mjk4N
 
 POST http://localhost:3000/api/posts/create
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTYyNDE1MDcsImV4cCI6MTY1NjI0MzMwN30.l8dJKhdI91kObbwGx33jxLxns7w2POL7mVUkmqVEIJI
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY0MDI0MTUsImV4cCI6MTY1NjQwNDIxNX0.HkplLl-wBoFm315OTLsE12YWiyH_94OZBgEVUdhxMG0
 
 {
   "genre": "Relationshipsd",
-  "body": "I wonder if this will be loaded when I press load more...?"
+  "body": "17"
 }
 
 ###
 
 POST http://localhost:3000/api/posts/retrieve
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTYyMzkxMjEsImV4cCI6MTY1NjI0MDkyMX0.yYd8qZ9BGJpn9VEOrHUN5TWwu7asnR_R_OCkuFk-ra0
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY0MDI1MDMsImV4cCI6MTY1NjQwNDMwM30.vUt-LN-upqHhGvtuAr_vuPgaj30PRus7s-R8zglQv1A
 
+{
+  "returnDailyPosts": true,
+  "lastPostViewedID": ""
+}
 
 ###
 

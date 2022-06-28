@@ -10,6 +10,11 @@ const postSchema = new mongoose.Schema({
         type: Date,
         default: Date.now,
     },
+    university: {
+        type: String,
+        enum: ["UVIC", "UBC", "SFU"],
+        required: true,
+    },
     genre: {
         type: String,
         enum: ["RELATIONSHIPS", "POLITICS", "CLASSES", "GENERAL", "OPINIONS", "CONFESSIONS"],

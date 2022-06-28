@@ -19,7 +19,8 @@ router.post("/create", authenticateToken, async (req, res) => {
             user_ID: "fake user id",
             faculty: "ENGINEERING",
             genre: "CLASSES",
-            text: req.body.body
+            text: req.body.body,
+            university: "UVIC"
         });
         await post.save();
         console.log("Succesfully created.");
@@ -34,20 +35,24 @@ router.post("/create", authenticateToken, async (req, res) => {
 // could someone technically get their access token and just send via postman to this address and change the fields they want?
 router.post("/retrieve", authenticateToken, async (req, res) => {
 
-    // Ensures sending nothing doesn't crash the server. (ADD WHEN I NEED VALIDATIOn)
-    // if (!req.body.number_of_posts || req.body.number_of_posts > 50) return res.status(400).json({"error": "fields cannot be blank and must be inside bounds"});
+    // Retrieves expected values from frontend.
+    const { returnDailyPosts, lastPostViewedID } = req.body;
 
-    // NOT SECURE CUZ NOT DOING "const { xyz } = req.body"??
-    var last_post_viewed_id;
-    if (!req.body.last_post_viewed_id) {
-        last_post_viewed_id = "000000000000000000000000"; // simulates starting from the beginning
-    } else {
-        last_post_viewed_id = req.body.last_post_viewed_id;
+    // Validates none of them are null;
+    if (returnDailyPosts == null || lastPostViewedID == null) return res.status(400).json({"error": "fields cannot be blank and must be inside bounds"});
+
+    // Retreives posts chronologically (newest first)
+    foundPosts = await Post.find(lastPostViewedID ? {_id: { $lt: ObjectId(lastPostViewedID) }} : null).sort({_id: -1}).limit(NUMBER_OF_POSTS_TO_RETURN_PER_CALL);
+     
+    var foundDailyPosts;
+    if (returnDailyPosts) {
+        foundDailyPosts = await Post.find().limit(3);    
     }
 
-    const foundPosts = await Post.find({_id: { $gt: ObjectId(last_post_viewed_id) }}).limit(NUMBER_OF_POSTS_TO_RETURN_PER_CALL);    
+    // var testPosts = [{"genre": "relationships", "faculty": "engineering"}, {"genre": "politics", "faculty": "comp sci"}];
 
-    res.status(200).json({"posts": foundPosts});
+    returnDailyPosts ? res.status(200).json({"posts": foundPosts, "dailyPosts": foundDailyPosts}) : res.status(200).json({"posts": foundPosts});
+
 });
 
 module.exports = router; 
