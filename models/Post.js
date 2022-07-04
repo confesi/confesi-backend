@@ -5,6 +5,11 @@ const postSchema = new mongoose.Schema({
     user_ID: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
+        index: true,
+    },
+    replying_to_post: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Post",
     },
     created_date: {
         type: Date,

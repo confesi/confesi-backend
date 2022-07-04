@@ -56,21 +56,35 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2Mjk4N
 
 POST http://localhost:3000/api/posts/create
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY0MDI0MTUsImV4cCI6MTY1NjQwNDIxNX0.HkplLl-wBoFm315OTLsE12YWiyH_94OZBgEVUdhxMG0
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY4OTcyOTMsImV4cCI6MTY1Njg5OTA5M30.LSEhIzMPCFXzJ1m5dfJRUO8fMIUehZDNEJGOoofuoNE
 
 {
-  "genre": "Relationshipsd",
-  "body": "17"
+  "genre": "RELATIONSHIPS",
+  "body": "POPULATE TEST 2",
+  "faculty": "LAW",
+  "university": "UBC"
+//   "replying_to_post_ID": "62bc22a7dd7909f9e1b362ac"
 }
 
 ###
 
 POST http://localhost:3000/api/posts/retrieve
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY0MDI1MDMsImV4cCI6MTY1NjQwNDMwM30.vUt-LN-upqHhGvtuAr_vuPgaj30PRus7s-R8zglQv1A
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY4OTU0NjQsImV4cCI6MTY1Njg5NzI2NH0.AsB6go2xUOCD5fXFWbjbUcqewaLIYEAFqWH1Ca4aHkw
 
 {
-  "returnDailyPosts": true,
+  "returnDailyPosts": false,
+  "lastPostViewedID": ""
+}
+
+###
+
+POST http://localhost:3000/api/posts/test
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY4OTk2MjYsImV4cCI6MTY1NjkwMTQyNn0.wdHBVJBPFi93zK5hbgM4e7uMpxWHIaG5FVIf2Oe7xSk
+
+{
+  "returnDailyPosts": false,
   "lastPostViewedID": ""
 }
 
@@ -78,8 +92,18 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZ
 
 POST http://localhost:3000/api/search/users
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTYyMzUyNzgsImV4cCI6MTY1NjIzNzA3OH0.u9B57zxgehC5IyA3Kaw4271n_NK1sV9uCzKs_SpvmCc
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY0Nzg3MDIsImV4cCI6MTY1NjQ4MDUwMn0.1MpZ7a7tZbhjIEMc84UkxfW6Dkg6uF1qo8-UZB2pA4E
 
 {
-  "username": "m2att"
+  "username": "matt"
+}
+
+###
+
+POST http://localhost:3000/api/search/universities
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY3MzE1MzcsImV4cCI6MTY1NjczMzMzN30.VTrs0Xq4Aej386Tg30K8rditJz-3IEXWgJr71EUV4RM
+
+{
+  "university": "victorr"
 }

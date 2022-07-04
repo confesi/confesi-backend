@@ -10,12 +10,13 @@ const userSchema = new mongoose.Schema({
         minlength: USERNAME_MIN_LENGTH,
         maxlength: USERNAME_MAX_LENGTH,
         unique: true,
+        index: true,
     },
     password: {
         type: String,
         required: true,
         minlength: PASSWORD_MIN_LENGTH,
-        // no maxLength here because after hashing password will be very long
+        // no maxLength here because after hashing the password will be very long
     },
     email: {
         type: String,
@@ -23,6 +24,7 @@ const userSchema = new mongoose.Schema({
         minlength: EMAIL_MIN_LENGTH,
         maxlength: EMAIL_MAX_LENGTH,
         unique: true,
+        index: true,
     },
     created_date: {
         type: Date,

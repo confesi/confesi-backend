@@ -4,6 +4,7 @@ const savedPostSchema = new mongoose.Schema({
     user_ID: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
+        index: true,
     },
     post_ID: {
         type: mongoose.Schema.Types.ObjectId,

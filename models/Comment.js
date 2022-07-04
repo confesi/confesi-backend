@@ -7,10 +7,12 @@ const commentSchema = new mongoose.Schema({
     post_ID: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
+        index: true,
     },
     parent_ID: {
         type: mongoose.Schema.Types.ObjectId,
         default: null,
+        index: true,
     },
     author_ID: {
         type: mongoose.Schema.Types.ObjectId,
