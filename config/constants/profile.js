@@ -1,0 +1,4 @@
+const BIO_MAX_LENGTH = 150;
+const DISPLAY_NAME_MAX_LENGTH = 50;
+
+module.exports = { BIO_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH };

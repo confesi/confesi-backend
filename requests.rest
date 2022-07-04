@@ -56,7 +56,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2Mjk4N
 
 POST http://localhost:3000/api/posts/create
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY4OTcyOTMsImV4cCI6MTY1Njg5OTA5M30.LSEhIzMPCFXzJ1m5dfJRUO8fMIUehZDNEJGOoofuoNE
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY5MjYyNjYsImV4cCI6MTY1NjkyODA2Nn0.ti_CkGKc7Qv6n96i7x7ogyhi3bq85NNfMY0OrHSETyM
 
 {
   "genre": "RELATIONSHIPS",
