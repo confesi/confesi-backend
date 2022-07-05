@@ -1,5 +1,9 @@
 const mongoose = require("mongoose");
-const { POST_MAX_LENGTH } = require("../config/constants/feed");
+const {
+  POST_MAX_LENGTH,
+  MIN_YEAR,
+  MAX_YEAR,
+} = require("../config/constants/feed");
 
 const postSchema = new mongoose.Schema({
   user_ID: {
@@ -7,7 +11,7 @@ const postSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
-  replying_to_post: {
+  replying_post_ID: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Post",
   },
@@ -31,6 +35,16 @@ const postSchema = new mongoose.Schema({
       "CONFESSIONS",
     ],
     required: true,
+  },
+  year: {
+    type: Number,
+    required: true,
+    min: MIN_YEAR,
+    max: MAX_YEAR,
+    validate: {
+      validator: Number.isInteger,
+      message: "year is not an integer value",
+    },
   },
   faculty: {
     type: String,

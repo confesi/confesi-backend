@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 
+// Validates that the access token passed in the authorization header from the frontend is valid
 function authenticateToken(req, res, next) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];

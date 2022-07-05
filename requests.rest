@@ -56,36 +56,25 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2Mjk4N
 
 POST http://localhost:3000/api/posts/create
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY5MjYyNjYsImV4cCI6MTY1NjkyODA2Nn0.ti_CkGKc7Qv6n96i7x7ogyhi3bq85NNfMY0OrHSETyM
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTcwMTUwNjUsImV4cCI6MTY1NzAxNjg2NX0.h0r1wCa-z-ylI4lckKyCIO463yFMRODyi1roSyUhp-Y
 
 {
   "genre": "RELATIONSHIPS",
-  "body": "POPULATE TEST 2",
+  "text": "bad ref test",
   "faculty": "LAW",
-  "university": "UBC"
-//   "replying_to_post_ID": "62bc22a7dd7909f9e1b362ac"
+  "university": "UBC",
+  "year": 6,
+  "replying_post_ID": "62aff9b08ad077f217c71305"
 }
 
 ###
 
-POST http://localhost:3000/api/posts/retrieve
+POST http://localhost:3000/api/posts/recents
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY4OTU0NjQsImV4cCI6MTY1Njg5NzI2NH0.AsB6go2xUOCD5fXFWbjbUcqewaLIYEAFqWH1Ca4aHkw
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTcwMTQxNDQsImV4cCI6MTY1NzAxNTk0NH0.8INDaA-EIh7OsU45GrLKDt8Fu19zCqVi2xYJQrFPHHI
 
 {
-  "returnDailyPosts": false,
-  "lastPostViewedID": ""
-}
-
-###
-
-POST http://localhost:3000/api/posts/test
-Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY4OTk2MjYsImV4cCI6MTY1NjkwMTQyNn0.wdHBVJBPFi93zK5hbgM4e7uMpxWHIaG5FVIf2Oe7xSk
-
-{
-  "returnDailyPosts": false,
-  "lastPostViewedID": ""
+  "last_post_viewed_ID": "62c405ff1975a9f0abd761f6"
 }
 
 ###

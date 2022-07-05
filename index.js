@@ -27,7 +27,7 @@ app.use(
   rateLimit({
     // In the future, rate limit specific routes
     windowMs: 20 * 60 * 1000, // 20 minutes
-    max: 100, // 100 requests per 20 minutes
+    max: 10000, // x requests per 20 minutes (CHANGE THIS LATER)
   })
 );
 

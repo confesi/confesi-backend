@@ -7,14 +7,16 @@ const {
   logoutAll,
 } = require("../controllers/authController");
 
-router.route("/register").post(register);
+router.post("/register", register);
 
-router.route("/login").post(login);
+router.post("/login", login);
 
-router.route("/token").post(token);
+router.post("/token", token);
 
-router.route("/logout").delete(logout);
+// Logs the user out, should this route require authentication?
+router.delete("/logout", logout);
 
-router.route("/logoutall").delete(logoutAll);
+// Logs the user out of all devices they are logged in on (takes time because it just cancels the refresh token in DB), should this route require authentication?
+router.delete("/logoutall", logoutAll);
 
 module.exports = router;

@@ -6,12 +6,20 @@ const {
 const getTokenFromAuthHeader = require("../utils/auth/getTokenFromAuthHeader");
 const jwt = require("jsonwebtoken");
 
+// CREATE POST //
+
 const create = async (req, res) => {
   // Retrieves expected values from frontend.
-  const { body, genre, university, faculty, replying_to_post_ID } = req.body;
+  const { text, genre, year, university, faculty, replying_post_ID } = req.body;
 
   // Ensures sending nothing doesn't crash the server
-  if (body == null || genre == null || university == null || faculty == null)
+  if (
+    text == null ||
+    genre == null ||
+    university == null ||
+    faculty == null ||
+    year == null
+  )
     return res.status(400).json({ error: "fields cannot be blank" });
 
   // Gets the access token from the authorization header (from request).
@@ -35,57 +43,53 @@ const create = async (req, res) => {
       user_ID: ObjectId(userWhoSentPostID), // Decrypted from accesstoken.
       university,
       genre,
+      year,
       faculty,
-      text: body,
+      text,
     });
 
     // If the post is replying to another post, add the field with a ref ID to the other post.
-    if (replying_to_post_ID != null && replying_to_post_ID.length !== 0) {
-      post.replying_to_post = ObjectId(replying_to_post_ID);
+    if (replying_post_ID != null && replying_post_ID.length !== 0) {
+      post.replying_post_ID = ObjectId(replying_post_ID);
     }
 
     // Save the post to DB.
     await post.save();
     console.log("Successfully created post.");
   } catch (e) {
-    console.log("ERRROR CAUGHT: " + e);
+    console.log("ERROR CAUGHT: " + e);
   }
 };
 
-const test = async (req, res) => {
-  const posts = await Post.find({}).populate("replying_to_post").limit(2);
-  console.log(posts);
-  return res.status(200).json({ message: "reached test endpoint" });
-};
+// RETRIEVE RECENT POSTS //
 
-// could someone technically get their access token and just send via postman to this address and change the fields they want?
-const retrieve = async (req, res) => {
+const recents = async (req, res) => {
   // Retrieves expected values from frontend.
-  const { returnDailyPosts, lastPostViewedID } = req.body;
+  const { last_post_viewed_ID } = req.body;
 
-  // Validates none of them are null;
-  if (returnDailyPosts == null || lastPostViewedID == null)
-    return res
-      .status(400)
-      .json({ error: "fields cannot be blank and must be inside bounds" });
+  // Validates the needed fields exist
+  if (last_post_viewed_ID == null || last_post_viewed_ID.length === 0)
+    return res.status(400).json({ error: "fields cannot be blank/empty" });
 
-  // Retreives posts chronologically (newest first)
-  foundPosts = await Post.find(
-    lastPostViewedID ? { _id: { $lt: ObjectId(lastPostViewedID) } } : null
-  )
-    .sort({ _id: -1 })
-    .limit(NUMBER_OF_POSTS_TO_RETURN_PER_CALL);
-
-  var foundDailyPosts;
-  if (returnDailyPosts) {
-    foundDailyPosts = await Post.find().limit(3);
+  // Retrieves posts chronologically (newest first).
+  // Finds posts: less than passed ID (more recent), sorts by _id (newest first), populates "replying_post_ID" field, and limits returned posts by CONSTANT.
+  try {
+    const foundPosts = await Post.find({
+      _id: { $lt: ObjectId(last_post_viewed_ID) },
+    })
+      .sort({ _id: -1 })
+      .populate("replying_post_ID")
+      .limit(NUMBER_OF_POSTS_TO_RETURN_PER_CALL);
+    return res.status(200).json({ foundPosts });
+  } catch (error) {
+    return res.status(500).json({ error: "unknown error" });
   }
-
-  // var testPosts = [{"genre": "relationships", "faculty": "engineering"}, {"genre": "politics", "faculty": "comp sci"}];
-
-  returnDailyPosts
-    ? res.status(200).json({ posts: foundPosts, dailyPosts: foundDailyPosts })
-    : res.status(200).json({ posts: foundPosts });
 };
 
-module.exports = { create, retrieve, test };
+// RETRIEVE DAILY HOTTEST POSTS //
+
+const dailyHottest = async (req, res) => {
+  return res.status(200).json({ msg: "test" });
+};
+
+module.exports = { create, recents, dailyHottest };
