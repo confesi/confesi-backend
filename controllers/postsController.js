@@ -86,10 +86,24 @@ const recents = async (req, res) => {
   }
 };
 
-// RETRIEVE DAILY HOTTEST POSTS //
+// LIKE A POST //
 
-const dailyHottest = async (req, res) => {
-  return res.status(200).json({ msg: "test" });
+const like = async (req, res) => {
+  // Update like count of post, return post with updated like count
+  const updatedLikePost = await Post.findOneAndUpdate(
+    {
+      _id: ObjectId("62c515851b9be4ab83c841c2"),
+    },
+    { $inc: { like_count: 1 } },
+    { new: true }
+  );
+  // Simulated rank function to update rank on post after post has been atomicaly liked
+  updatedLikePost.rank =
+    (updatedLikePost.like_count + updatedLikePost.dislike_count) * 2;
+  // Save post with updated rank (and from earlier, like count)
+  const updatedRankPost = await updatedLikePost.save();
+  // Return new updated post
+  res.status(200).json({ user: updatedRankPost });
 };
 
-module.exports = { create, recents, dailyHottest };
+module.exports = { create, recents, like };

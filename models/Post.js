@@ -4,6 +4,7 @@ const {
   MIN_YEAR,
   MAX_YEAR,
 } = require("../config/constants/feed");
+const { post } = require("../routes/posts");
 
 const postSchema = new mongoose.Schema({
   user_ID: {
@@ -14,6 +15,11 @@ const postSchema = new mongoose.Schema({
   replying_post_ID: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Post",
+  },
+  rank: {
+    type: Number,
+    default: 0,
+    index: true,
   },
   created_date: {
     type: Date,
@@ -89,5 +95,18 @@ const postSchema = new mongoose.Schema({
     default: 0,
   },
 });
+
+// postSchema.pre("save", function (next) {
+//   console.log("SAVE METHOD CALLED");
+//   this.rank = this.university + this.genre;
+//   next();
+// });
+
+// postSchema.pre("updateOne", function (next) {
+//   // pseudo-code with dummied-down algorithm
+//   post.likes = posts.likes + 1;
+//   post.rank = (post.likes + post.dislikes) / post.created_date;
+//   next();
+// });
 
 module.exports = mongoose.model("Post", postSchema);
