@@ -56,11 +56,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2Mjk4N
 
 POST http://localhost:3000/api/posts/create
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTcwODQxMzAsImV4cCI6MTY1NzA4NTkzMH0.Z7fvi2vLUTZ7D8kc6T9VEy0WnJsBLi2CvNr_s11s2Ss
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTcxNDU5NjQsImV4cCI6MTY1NzE0Nzc2NH0.vAKCvO-USsNg7bBQvMea_ZCPI0zxJBS5AbWV8_OeW18
 
 {
   "genre": "RELATIONSHIPS",
-  "text": "pre3",
+  "text": "vote test",
   "faculty": "LAW",
   "university": "UBC",
   "year": 6,
@@ -79,13 +79,14 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZ
 
 ###
 
-POST http://localhost:3000/api/posts/like
+POST http://localhost:3000/api/posts/vote
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTcwOTY2NTcsImV4cCI6MTY1NzA5ODQ1N30.wd9pT0VbKzXzORSEgZp5lDTfI6YyQ6O9v5WepBFOX7s
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTcxNjQ4NDgsImV4cCI6MTY1NzE2NjY0OH0.RKEmJiqi1UonWF1J_tlUmTHPPg-Zqpp5RPM10XBk9yk
 
-# {
-#   "last_post_viewed_ID": "62c405ff1975a9f0abd761f6"
-# }
+{
+  "post_ID": "62c60a9a5a4d115ea70e0ccf",
+  "newVoteValue": 0
+}
 
 ###
 

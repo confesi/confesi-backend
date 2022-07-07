@@ -5,6 +5,8 @@ const {
 } = require("../config/constants/feed");
 const getTokenFromAuthHeader = require("../utils/auth/getTokenFromAuthHeader");
 const jwt = require("jsonwebtoken");
+const Vote = require("../models/Vote");
+const decryptUserIDFromToken = require("../utils/auth/decryptUserIDFromToken");
 
 // CREATE POST //
 
@@ -26,16 +28,7 @@ const create = async (req, res) => {
   const accessToken = getTokenFromAuthHeader(req);
 
   // Decrypts access token, and gets the user's ID from it.
-  var userWhoSentPostID;
-  jwt.verify(
-    accessToken,
-    process.env.ACCESS_TOKEN_SECRET,
-    async (e, decryptedToken) => {
-      if (e) return res.status(403).send("Token tampered with");
-      // Returns the userID (_id from user doc in MongoDB) that is associated with this access token.
-      userWhoSentPostID = decryptedToken.userID;
-    }
-  );
+  const userWhoSentPostID = await decryptUserIDFromToken(accessToken);
 
   try {
     // Create post with fields filled all posts will have.
@@ -72,7 +65,8 @@ const recents = async (req, res) => {
     return res.status(400).json({ error: "fields cannot be blank/empty" });
 
   // Retrieves posts chronologically (newest first).
-  // Finds posts: less than passed ID (more recent), sorts by _id (newest first), populates "replying_post_ID" field, and limits returned posts by CONSTANT.
+  // Finds posts: less than passed ID (more recent), sorts by _id (newest first), populates "replying_post_ID"
+  // field, and limits returned posts by a CONSTANT.
   try {
     const foundPosts = await Post.find({
       _id: { $lt: ObjectId(last_post_viewed_ID) },
@@ -86,24 +80,112 @@ const recents = async (req, res) => {
   }
 };
 
-// LIKE A POST //
+// VOTE ON A POST //
 
-const like = async (req, res) => {
-  // Update like count of post, return post with updated like count
-  const updatedLikePost = await Post.findOneAndUpdate(
-    {
-      _id: ObjectId("62c515851b9be4ab83c841c2"),
-    },
-    { $inc: { like_count: 1 } },
-    { new: true }
-  );
-  // Simulated rank function to update rank on post after post has been atomicaly liked
-  updatedLikePost.rank =
-    (updatedLikePost.like_count + updatedLikePost.dislike_count) * 2;
-  // Save post with updated rank (and from earlier, like count)
-  const updatedRankPost = await updatedLikePost.save();
-  // Return new updated post
-  res.status(200).json({ user: updatedRankPost });
+const vote = async (req, res) => {
+  // Retrieves expected values from frontend.
+  const { post_ID, newVoteValue } = req.body;
+
+  // Validates the needed fields exist
+  if (
+    post_ID == null ||
+    (newVoteValue != -1 && newVoteValue != 0 && newVoteValue != 1)
+  ) {
+    return res
+      .status(400)
+      .json({ error: "fields cannot be blank/empty/invalid" });
+  }
+
+  // Gets the access token from the authorization header (from request).
+  const accessToken = getTokenFromAuthHeader(req);
+
+  // Decrypts access token, and gets the user's ID from it.
+  const user_ID = await decryptUserIDFromToken(accessToken);
+
+  // Searches if the vote for this post already exists by this user
+  const foundVote = await Vote.findOne({
+    $and: [{ user_ID: user_ID }, { post_ID: post_ID }],
+  });
+
+  if (!foundVote) {
+    console.log(`no vote found, now voting: ${newVoteValue}`);
+    const newVote = new Vote({
+      value: newVoteValue,
+      post_ID,
+      user_ID,
+    });
+    await newVote.save();
+  } else {
+    const result = await Vote.findOneAndUpdate(
+      { post_ID, user_ID },
+      [
+        {
+          $set: {
+            value: { $ifNull: ["$value", 0] },
+          },
+        },
+        {
+          $set: {
+            value: newVoteValue,
+          },
+        },
+      ],
+      {
+        projection: { value: 1 },
+        upsert: true,
+      }
+    );
+
+    // Old vote value found from update query
+    const oldVoteValue = result.value;
+
+    // Set upvote/downvote by amount to 0 (to be changed below)
+    var changeVoteAmount = 0;
+
+    // If the vote changes, update the "changeVoteAmount"
+    // "newVoteValue" is passed in request
+    if (newVoteValue !== oldVoteValue) {
+      if (oldVoteValue === -1 && newVoteValue === 0) {
+        // add 1
+        changeVoteAmount = 1;
+      } else if (oldVoteValue === -1 && newVoteValue === 1) {
+        // add 2
+        changeVoteAmount = 2;
+      } else if (oldVoteValue === 0 && newVoteValue === -1) {
+        // subtract 1
+        changeVoteAmount = -1;
+      } else if (oldVoteValue === 0 && newVoteValue === 1) {
+        // add 1
+        changeVoteAmount = 1;
+      } else if (oldVoteValue === 1 && newVoteValue === -1) {
+        // subtract 2
+        changeVoteAmount = -2;
+      } else if (oldVoteValue === 1 && newVoteValue === 0) {
+        // subtract 1
+        changeVoteAmount = -1;
+      }
+      // Update vote count of post, return post with updated vote count
+      const updatedVotePost = await Post.findOneAndUpdate(
+        {
+          _id: ObjectId(post_ID),
+        },
+        { $inc: { votes: changeVoteAmount } },
+        { new: true }
+      );
+
+      // Rank function to update rank on post after post has been atomicaly voted on
+      updatedVotePost.rank = updatedVotePost.votes * 2 + 1;
+
+      // Save post with updated rank (and from earlier, new updated vote count)
+      const updatedRankPost = await updatedVotePost.save();
+
+      // Return new updated post
+      res.status(200).json({ post: updatedRankPost });
+    } else {
+      // Post already has vote that user tried to cast
+      res.status(400).json({ msg: "new vote same as old vote" });
+    }
+  }
 };
 
-module.exports = { create, recents, like };
+module.exports = { create, recents, vote };

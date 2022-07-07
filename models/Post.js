@@ -4,7 +4,6 @@ const {
   MIN_YEAR,
   MAX_YEAR,
 } = require("../config/constants/feed");
-const { post } = require("../routes/posts");
 
 const postSchema = new mongoose.Schema({
   user_ID: {
@@ -84,14 +83,12 @@ const postSchema = new mongoose.Schema({
     min: 0,
     default: 0,
   },
-  like_count: {
+  votes: {
     type: Number,
-    min: 0,
-    default: 0,
-  },
-  dislike_count: {
-    type: Number,
-    min: 0,
+    validate: {
+      validator: Number.isInteger,
+      message: "vote is not an integer value",
+    },
     default: 0,
   },
 });

@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const authenticateToken = require("../middlewares/authenticateToken");
-const { create, recents, like } = require("../controllers/postsController");
+const { create, recents, vote } = require("../controllers/postsController");
 
 // Creates a post
 router.post("/create", authenticateToken, create);
@@ -8,7 +8,7 @@ router.post("/create", authenticateToken, create);
 // Retrieves the newest posts
 router.post("/recents", authenticateToken, recents);
 
-// likes a specified post
-router.post("/like", authenticateToken, like);
+// Votes on a specified post (-1 or 1)
+router.post("/vote", authenticateToken, vote);
 
 module.exports = router;
