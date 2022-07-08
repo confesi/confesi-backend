@@ -123,7 +123,6 @@ const vote = async (req, res) => {
         post_ID,
         user_ID,
       });
-      console.log(`Created Vote: ${createdVote}`);
       await createdVote.save();
     } else {
       // Otherwise, their vote is updated, alongside with the rank.
@@ -157,7 +156,6 @@ const vote = async (req, res) => {
     // If the vote changes, update the "changeVoteAmount"
     // "newVoteValue" is passed in request
     if (newVoteValue !== oldVoteValue || !foundVote) {
-      console.log("passed IF");
       if (oldVoteValue === -1 && newVoteValue === 0) {
         // add 1
         changeVoteAmount = 1;

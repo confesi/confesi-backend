@@ -1,16 +1,18 @@
 const University = require("../models/University");
 const User = require("../models/User");
 
-const users = async (req, res) => {
-  console.log("<=== SEARCH USERS ROUTE HIT ===>");
+// SEARCH UP USERS //
 
+const users = async (req, res) => {
   // Deconstructs passed data
   const { username } = req.body;
 
   // Makes sure required data is passed
-  if (!username)
+  if (username == null)
     return res.status(400).json({ error: "fields cannot be blank" });
 
+  // An aggregation value that allows us to fuzzy search
+  // for usernames in the User's collection
   const agg = [
     {
       $search: {
@@ -34,21 +36,29 @@ const users = async (req, res) => {
     { $sort: { score: -1 } },
   ];
 
-  // run pipeline
-  const result = await User.aggregate(agg);
-  return res.status(200).json({ users: result });
+  try {
+    // Runs the pipeline using our aggregation.
+    const result = await User.aggregate(agg);
+    return res.status(200).json({ users: result });
+  } catch (error) {
+    // Server error searching for users
+    return res.status(500).json({ error: "Internal server error" });
+  }
 };
 
-const universities = async (req, res) => {
-  console.log("<=== SEARCH UNIVERSITIES ROUTE HIT ===>");
+// SEARCH UP UNIVERSITIES //
 
+const universities = async (req, res) => {
   // Deconstructs passed data
   const { university } = req.body;
 
   // Makes sure required data is passed
-  if (!university)
+  if (university == null)
     return res.status(400).json({ error: "fields cannot be blank" });
 
+  // An aggregation value that allows us to fuzzy search
+  // for universities by their extended names in the User's collection
+  // "Extended names" = "University of Victoria" != "UVic"
   const agg = [
     {
       $search: {
@@ -72,9 +82,14 @@ const universities = async (req, res) => {
     { $sort: { score: -1 } },
   ];
 
-  // Run pipeline
-  const result = await University.aggregate(agg);
-  return res.status(200).json({ universities: result });
+  try {
+    // Runs the pipeline using our aggregation.
+    const result = await University.aggregate(agg);
+    return res.status(200).json({ universities: result });
+  } catch (error) {
+    // Server error searching for universities
+    return res.status(500).json({ error: "Internal server error" });
+  }
 };
 
 module.exports = { users, universities };

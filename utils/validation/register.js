@@ -7,6 +7,11 @@ const {
   PASSWORD_MIN_LENGTH,
 } = require("../../config/constants/auth");
 
+// TODO: Add profanity checking. User's should probably not be
+// allowed to have profanity in their emails, usernames, or passwords!
+
+// Validates that emails, usernames, and passwords are the correct
+// length and are of the correct format.
 function registerValidation(email, username, password) {
   // Email validation
   if (!validateEmail(email)) {
@@ -34,11 +39,10 @@ function registerValidation(email, username, password) {
   return null;
 }
 
+// Regex that basically means: "is the email formatted like an email?"
 function validateEmail(email) {
   var re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(email);
 }
 
 module.exports = registerValidation;
-
-// min, max, EMAIL VALID, username profanity

@@ -1,5 +1,8 @@
+// Number of times salting is applied to password hashing.
 const SALT_ROUNDS = 10;
+// How long the access token lasts for.
 const ACCESS_TOKEN_LIFETIME = "30m";
+// How long the refresh token lasts for.
 const REFRESH_TOKEN_LIFETIME = "1y";
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 100;

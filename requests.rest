@@ -4,8 +4,8 @@ POST http://localhost:3000/api/user/register
 Content-Type: application/json
 
 {
-    "username": "matt2",
-    "email": "d11idd12d00@gmail.com",
+    "username": "hey",
+    "email": "d11didd12d00@gmail.com",
     "password": "password"
 }
 
@@ -15,7 +15,7 @@ POST http://localhost:3000/api/user/login
 Content-Type: application/json
 
 {
-    "usernameOrEmail": "joe",
+    "usernameOrEmail": "hey",
     "password": "password"
 }
 
@@ -25,7 +25,7 @@ POST http://localhost:3000/api/user/token
 Content-Type: application/json
 
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTW9uZ29PYmplY3RJRCI6IjYyOTg2ZDBhYWQyZDI3MjI1ZjFhZGI2NSIsImlhdCI6MTY1NTI4NDM1MiwiZXhwIjoxNjg2ODQxOTUyfQ.2S6TPf453SDMduszWPfBFveSf-xg3x36GlerdvJ0wJM"
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTW9uZ29PYmplY3RJRCI6IjYyYzgyODIzZjRjMDE2ZjljYjM3MTdmMSIsImlhdCI6MTY1NzI4NDY2MCwiZXhwIjoxNjg4ODQyMjYwfQ.ucgYWoST3ITkFu9dhlOrlWBAkxLrIZOiv-Hk6IuWUG8"
 }
 
 ###
@@ -34,7 +34,7 @@ DELETE http://localhost:3000/api/user/logout
 Content-Type: application/json
 
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTW9uZ29PYmplY3RJRCI6IjYyOTE5ZmIwYzg0YTFkNjc0ZGFjNzg4MyIsImlhdCI6MTY1MzcxMDg0NCwiZXhwIjoxNjg1MjY4NDQ0fQ.kqOekIpWs0CL22diLZo1Yp-0YfKRLfIUa4YNgNh4CWw"
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTW9uZ29PYmplY3RJRCI6IjYyYzgyODIzZjRjMDE2ZjljYjM3MTdmMSIsImlhdCI6MTY1NzI4NDY2MCwiZXhwIjoxNjg4ODQyMjYwfQ.ucgYWoST3ITkFu9dhlOrlWBAkxLrIZOiv-Hk6IuWUG8"
 }
 
 
@@ -64,7 +64,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmM4M
   "faculty": "LAW",
   "university": "UBC",
   "year": 6,
-  "replying_post_ID": "62aff9b08ad077f217c71305"
+  "replying_post_ID": "62c80c29f9d7491c2976ee0a"
 }
 
 ###

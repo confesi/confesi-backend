@@ -23,16 +23,24 @@ mongoose.connect(process.env.DB_CONNECT, () => {
 app.use(express.json());
 app.use(helmet());
 app.use(compression());
+
+// Rate limiting
+
+// TODO: In the future, rate limit specific routes.
+// TODO: Change rate limiting values: they're large for testing.
 app.use(
   rateLimit({
-    // In the future, rate limit specific routes
     windowMs: 20 * 60 * 1000, // 20 minutes
-    max: 10000, // x requests per 20 minutes (CHANGE THIS LATER)
+    max: 10000, // x requests per 20 minutes
   })
 );
 
 // Cors
-app.use(cors({ origin: "*" })); // Frontend address this API can be called from, in the future, make the specific frontend app address?
+
+// Frontend address this API can be
+// called from, in the future, make this the
+// specific frontend app address?
+app.use(cors({ origin: "*" }));
 
 // Error
 app.use((err, req, res, next) => {
@@ -45,6 +53,7 @@ app.use("/api/user", authRoute);
 app.use("/api/posts", postsRoute);
 app.use("/api/search", searchRoute);
 
+// Server location
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
