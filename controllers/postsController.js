@@ -7,6 +7,7 @@ const getTokenFromAuthHeader = require("../utils/auth/getTokenFromAuthHeader");
 const jwt = require("jsonwebtoken");
 const Vote = require("../models/Vote");
 const decryptUserIDFromToken = require("../utils/auth/decryptUserIDFromToken");
+const rank = require("../utils/feed/rank");
 
 // CREATE POST //
 
@@ -96,55 +97,67 @@ const vote = async (req, res) => {
       .json({ error: "fields cannot be blank/empty/invalid" });
   }
 
-  // Gets the access token from the authorization header (from request).
-  const accessToken = getTokenFromAuthHeader(req);
+  var accessToken;
+  var user_ID;
+  try {
+    // Gets the access token from the authorization header (from request).
+    accessToken = getTokenFromAuthHeader(req);
 
-  // Decrypts access token, and gets the user's ID from it.
-  const user_ID = await decryptUserIDFromToken(accessToken);
+    // Decrypts access token, and gets the user's ID from it.
+    user_ID = await decryptUserIDFromToken(accessToken);
+  } catch (error) {
+    return res.status(400).json({ error: "error pulling userID from token" });
+  }
 
-  // Searches if the vote for this post already exists by this user
-  const foundVote = await Vote.findOne({
-    $and: [{ user_ID: user_ID }, { post_ID: post_ID }],
-  });
-
-  if (!foundVote) {
-    console.log(`no vote found, now voting: ${newVoteValue}`);
-    const newVote = new Vote({
-      value: newVoteValue,
-      post_ID,
-      user_ID,
+  try {
+    // Searches if the vote for this post already exists by this user
+    const foundVote = await Vote.findOne({
+      $and: [{ user_ID: user_ID }, { post_ID: post_ID }],
     });
-    await newVote.save();
-  } else {
-    const result = await Vote.findOneAndUpdate(
-      { post_ID, user_ID },
-      [
-        {
-          $set: {
-            value: { $ifNull: ["$value", 0] },
+
+    var createdVote;
+    if (!foundVote) {
+      // If this user has not yet voted, a note vote document is created.
+      createdVote = new Vote({
+        value: newVoteValue,
+        post_ID,
+        user_ID,
+      });
+      console.log(`Created Vote: ${createdVote}`);
+      await createdVote.save();
+    } else {
+      // Otherwise, their vote is updated, alongside with the rank.
+      createdVote = await Vote.findOneAndUpdate(
+        { post_ID, user_ID },
+        [
+          {
+            $set: {
+              value: { $ifNull: ["$value", 0] },
+            },
           },
-        },
-        {
-          $set: {
-            value: newVoteValue,
+          {
+            $set: {
+              value: newVoteValue,
+            },
           },
-        },
-      ],
-      {
-        projection: { value: 1 },
-        upsert: true,
-      }
-    );
+        ],
+        {
+          projection: { value: 1 },
+          upsert: true,
+        }
+      );
+    }
 
     // Old vote value found from update query
-    const oldVoteValue = result.value;
+    const oldVoteValue = createdVote.value;
 
-    // Set upvote/downvote by amount to 0 (to be changed below)
+    // Set upvote/downvote by amount to 0 (to be changed on actual post below)
     var changeVoteAmount = 0;
 
     // If the vote changes, update the "changeVoteAmount"
     // "newVoteValue" is passed in request
-    if (newVoteValue !== oldVoteValue) {
+    if (newVoteValue !== oldVoteValue || !foundVote) {
+      console.log("passed IF");
       if (oldVoteValue === -1 && newVoteValue === 0) {
         // add 1
         changeVoteAmount = 1;
@@ -163,6 +176,11 @@ const vote = async (req, res) => {
       } else if (oldVoteValue === 1 && newVoteValue === 0) {
         // subtract 1
         changeVoteAmount = -1;
+      } else {
+        // This condition is hit if we're creating a new vote (meaning oldVoteValue = newVoteValue)
+        // so no other block will trigger, so we'll set our change by whatever our newly
+        // created vote's value is
+        changeVoteAmount = newVoteValue;
       }
       // Update vote count of post, return post with updated vote count
       const updatedVotePost = await Post.findOneAndUpdate(
@@ -174,7 +192,7 @@ const vote = async (req, res) => {
       );
 
       // Rank function to update rank on post after post has been atomicaly voted on
-      updatedVotePost.rank = updatedVotePost.votes * 2 + 1;
+      updatedVotePost.rank = rank(updatedVotePost.votes);
 
       // Save post with updated rank (and from earlier, new updated vote count)
       const updatedRankPost = await updatedVotePost.save();
@@ -185,7 +203,25 @@ const vote = async (req, res) => {
       // Post already has vote that user tried to cast
       res.status(400).json({ msg: "new vote same as old vote" });
     }
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ error: `internal server error: couldn't update vote ${error}` });
   }
 };
 
-module.exports = { create, recents, vote };
+// RETRIEVE TRENDING POSTS //
+
+const trending = async (req, res) => {
+  try {
+    const foundPosts = await Post.find({})
+      .sort({ rank: -1 })
+      .populate("replying_post_ID")
+      .limit(NUMBER_OF_POSTS_TO_RETURN_PER_CALL);
+    return res.status(200).json({ foundPosts });
+  } catch (error) {
+    return res.status(500).json({ error: "unknown error" });
+  }
+};
+
+module.exports = { create, recents, trending, vote };

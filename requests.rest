@@ -4,8 +4,8 @@ POST http://localhost:3000/api/user/register
 Content-Type: application/json
 
 {
-    "username": "mamdaat",
-    "email": "d11id12d00@gmail.com",
+    "username": "matt2",
+    "email": "d11idd12d00@gmail.com",
     "password": "password"
 }
 
@@ -56,11 +56,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2Mjk4N
 
 POST http://localhost:3000/api/posts/create
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTcxNDU5NjQsImV4cCI6MTY1NzE0Nzc2NH0.vAKCvO-USsNg7bBQvMea_ZCPI0zxJBS5AbWV8_OeW18
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmM4MGI1N2Y5ZDc0OTFjMjk3NmVkZGQiLCJpYXQiOjE2NTcyNzg2MDgsImV4cCI6MTY1NzI4MDQwOH0.4CeB6cORMe9BJLqfQ1qaWKMKtVC7BaMJzDCqOcIW1fs
 
 {
   "genre": "RELATIONSHIPS",
-  "text": "vote test",
+  "text": "post-fix",
   "faculty": "LAW",
   "university": "UBC",
   "year": 6,
@@ -81,12 +81,19 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZ
 
 POST http://localhost:3000/api/posts/vote
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTcxNjQ4NDgsImV4cCI6MTY1NzE2NjY0OH0.RKEmJiqi1UonWF1J_tlUmTHPPg-Zqpp5RPM10XBk9yk
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTcyNzk3NDksImV4cCI6MTY1NzI4MTU0OX0.lC4C4FwViMeCJKUWLKopjRKgvEktExj-KrR88QfVpuw
 
 {
-  "post_ID": "62c60a9a5a4d115ea70e0ccf",
+  "post_ID": "62c80c29f9d7491c2976ee0a",
   "newVoteValue": 0
 }
+
+###
+
+POST http://localhost:3000/api/posts/trending
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmM4MGI1N2Y5ZDc0OTFjMjk3NmVkZGQiLCJpYXQiOjE2NTcyNzg2MDgsImV4cCI6MTY1NzI4MDQwOH0.4CeB6cORMe9BJLqfQ1qaWKMKtVC7BaMJzDCqOcIW1fs
+
 
 ###
 
