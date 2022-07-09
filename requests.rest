@@ -71,17 +71,17 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmM4M
 
 POST http://localhost:3000/api/posts/recents
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTcwNjM5MTEsImV4cCI6MTY1NzA2NTcxMX0.3wZKNxvEKvC1UKo0qWvT0EYQ05JFbflvp1Rl9rvVkDs
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmM4MjgyM2Y0YzAxNmY5Y2IzNzE3ZjEiLCJpYXQiOjE2NTczNDUzNTIsImV4cCI6MTY1NzM0NzE1Mn0.x6cSEOSG2ojq8T-SJbHT9OVxGT7HPCtnkSYbGyyFw54
 
 {
-  "last_post_viewed_ID": "62c405ff1975a9f0abd761f6"
+  "last_post_viewed_ID": ""
 }
 
 ###
 
 POST http://localhost:3000/api/posts/vote
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTcyNzk3NDksImV4cCI6MTY1NzI4MTU0OX0.lC4C4FwViMeCJKUWLKopjRKgvEktExj-KrR88QfVpuw
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmM4MjgyM2Y0YzAxNmY5Y2IzNzE3ZjEiLCJpYXQiOjE2NTczMjk4MjUsImV4cCI6MTY1NzMzMTYyNX0.k2LPaY2b74VLj227A5decKaw6On-xthiznnsDPRk-mA
 
 {
   "post_ID": "62c80c29f9d7491c2976ee0a",
@@ -92,14 +92,14 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZ
 
 POST http://localhost:3000/api/posts/trending
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmM4MGI1N2Y5ZDc0OTFjMjk3NmVkZGQiLCJpYXQiOjE2NTcyNzg2MDgsImV4cCI6MTY1NzI4MDQwOH0.4CeB6cORMe9BJLqfQ1qaWKMKtVC7BaMJzDCqOcIW1fs
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmM4MjgyM2Y0YzAxNmY5Y2IzNzE3ZjEiLCJpYXQiOjE2NTczNDYxODMsImV4cCI6MTY1NzM0Nzk4M30.GX--log3oXMBbwR9MQ7-HwPyor-4Xr5rJcLt4EofpZM
 
 
 ###
 
 POST http://localhost:3000/api/search/users
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmFmZjliMDhhZDA3N2YyMTdjNzEzMDUiLCJpYXQiOjE2NTY0Nzg3MDIsImV4cCI6MTY1NjQ4MDUwMn0.1MpZ7a7tZbhjIEMc84UkxfW6Dkg6uF1qo8-UZB2pA4E
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2MmM4MjgyM2Y0YzAxNmY5Y2IzNzE3ZjEiLCJpYXQiOjE2NTczMjk4MjUsImV4cCI6MTY1NzMzMTYyNX0.k2LPaY2b74VLj227A5decKaw6On-xthiznnsDPRk-mA
 
 {
   "username": "matt"

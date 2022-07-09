@@ -61,23 +61,33 @@ const recents = async (req, res) => {
   // Retrieves expected values from frontend.
   const { last_post_viewed_ID } = req.body;
 
-  // Validates the needed fields exist
-  if (last_post_viewed_ID == null || last_post_viewed_ID.length === 0)
-    return res.status(400).json({ error: "fields cannot be blank/empty" });
-
   // Retrieves posts chronologically (newest first).
   // Finds posts: less than passed ID (more recent), sorts by _id (newest first), populates "replying_post_ID"
   // field, and limits returned posts by a CONSTANT.
   try {
-    const foundPosts = await Post.find({
-      _id: { $lt: ObjectId(last_post_viewed_ID) },
-    })
-      .sort({ _id: -1 })
-      .populate("replying_post_ID")
-      .limit(NUMBER_OF_POSTS_TO_RETURN_PER_CALL);
+    var foundPosts;
+    // If there does not exist a last viewed post ID from the frontend,
+    // then just give them the most recent x posts, else, return posts after their last
+    // viewed post
+    if (last_post_viewed_ID == null || last_post_viewed_ID.length === 0) {
+      foundPosts = await Post.find({})
+        .select({ user_ID: 0 })
+        .sort({ _id: 1 })
+        .populate("replying_post_ID")
+        .limit(NUMBER_OF_POSTS_TO_RETURN_PER_CALL);
+    } else {
+      foundPosts = await Post.find({
+        // Returns posts without the user_ID for anonymity
+        _id: { $lt: ObjectId(last_post_viewed_ID) },
+      })
+        .select({ user_ID: 0 })
+        .sort({ _id: -1 })
+        .populate("replying_post_ID")
+        .limit(NUMBER_OF_POSTS_TO_RETURN_PER_CALL);
+    }
     return res.status(200).json({ foundPosts });
   } catch (error) {
-    return res.status(500).json({ error: "unknown error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -213,8 +223,10 @@ const vote = async (req, res) => {
 const trending = async (req, res) => {
   try {
     const foundPosts = await Post.find({})
+      // Returns posts without the user_ID for anonymity
+      .select({ user_ID: 0 })
       .sort({ rank: -1 })
-      .populate("replying_post_ID")
+      .populate("replying_post_ID", { user_ID: 0 })
       .limit(NUMBER_OF_POSTS_TO_RETURN_PER_CALL);
     return res.status(200).json({ foundPosts });
   } catch (error) {
