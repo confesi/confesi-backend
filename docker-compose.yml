@@ -1,0 +1,51 @@
+services:
+  app:
+    build: .
+    ports:
+      - target: 3000
+        host_ip: 0.0.0.0  # this is the default, but for emphasis: exposed to everyone
+        published: 3000
+        protocol: tcp
+        mode: ingress
+    environment:
+      DB_CONNECT: mongodb://mongo/
+      ACCESS_TOKEN_SECRET:
+      REFRESH_TOKEN_SECRET:
+    read_only: true
+    init: true
+    depends_on:
+      - mongo
+    networks:
+      - front-tier
+      - back-tier
+
+  mongo:
+    image: mongo:5
+    volumes:
+      - database:/data/db
+      - type: tmpfs
+        target: /tmp
+    read_only: true
+    networks:
+      - back-tier
+
+  create-secrets:
+    profiles:
+      - command
+    image: node:18-slim
+    command:
+      - 'node'
+      - '-e'
+      - |
+        let gen = () => crypto.randomBytes(32).toString("base64").slice(0, -1);
+        console.log("ACCESS_TOKEN_SECRET=" + gen());
+        console.log("REFRESH_TOKEN_SECRET=" + gen());
+    network_mode: none
+
+volumes:
+  database:
+
+networks:
+  front-tier:
+  back-tier:
+    internal: true
