@@ -1,0 +1,12 @@
+*
+!config
+!controllers
+!Dockerfile
+!index.js
+!middlewares
+!models
+!package.json
+!package-lock.json
+!routes
+!utils
+**/.*

@@ -1,7 +1,6 @@
 const { PORT } = require("./config/constants/general");
 const express = require("express");
 const app = express();
-const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -12,8 +11,6 @@ const compression = require("compression");
 const authRoute = require("./routes/auth");
 const postsRoute = require("./routes/posts");
 const searchRoute = require("./routes/search");
-
-dotenv.config({ path: "./config/.env" });
 
 mongoose.connect(process.env.DB_CONNECT, () => {
   console.log("Connected to DB");
