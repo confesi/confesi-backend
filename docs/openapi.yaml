@@ -1,0 +1,226 @@
+openapi: 3.0.2
+
+info:
+  title: Confesi server
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:3000/
+
+components:
+  schemas:
+    masked-sequential-id:
+      type: string
+      minLength: 22
+      maxLength: 22
+      #pattern: '^[0-9A-Za-z+/]+$'
+      contentEncoding: base64url
+      contentMediaType: application/vnd.confesi.masked-sequential-id
+    success:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: 'null'
+      example: {error: null}
+    username:
+      type: string
+      minLength: 1
+      maxLength: 32
+      pattern: '^[0-9A-Za-z]+$'
+      example: 'earlgrey'
+  responses:
+    unauthenticated:
+      description: The authentication token is not valid (missing, malformed, fake, or expired).
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                enum:
+                  - Unauthenticated
+
+    unexpected:
+      description: An unexpected error occurred. (Non-JSON bodies with other response codes and unexpected data types should also be treated as this error.)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                enum:
+                  - Unexpected
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+
+security:
+  - bearer: []
+
+paths:
+  /login:
+    post:
+      summary: Log in
+      description: Authenticates with a username.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+              properties:
+                username:
+                  $ref: '#/components/schemas/username'
+                  description: The username. Case-insensitive.
+      responses:
+        '200':
+          description: Authentication was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/success'
+        '400':
+          description: Authentication was unsuccessful.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: string
+                    enum:
+                      - UsernameNotFound
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'
+
+  /logout:
+    post:
+      responses:
+        '200':
+          description: The requesting session was valid, and was invalidated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/success'
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'
+
+  /logout-all:
+    post:
+      responses:
+        '200':
+          description: All sessions belonging to the user were invalidated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/success'
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'
+
+  /users/:
+    post:
+      summary: Create account
+      description: Registers a new account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+              properties:
+                username:
+                  $ref: '#/components/schemas/username'
+                  description: The new account’s username.
+      responses:
+        '200':
+          description: The account was created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/success'
+        '409':
+          description: An error occurred creating the account.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                error:
+                  type: string
+                  enum:
+                    - UsernameTaken
+        '500':
+          $ref: '#/components/responses/unexpected'
+
+  /posts/:
+    get:
+      summary: List posts
+      parameters:
+        - name: sort
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - recent
+              - trending
+        - name: before
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/masked-sequential-id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: 'object'
+                required:
+                  - value
+                properties:
+                  posts:
+                    type: array
+
+    post:
+      summary: Create post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/success'
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'
