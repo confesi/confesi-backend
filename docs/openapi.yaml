@@ -9,6 +9,13 @@ servers:
 
 components:
   schemas:
+    masked-id:
+      type: string
+      minLength: 22
+      maxLength: 22
+      #pattern: '^[0-9A-Za-z+/]+$'
+      contentEncoding: base64url
+      contentMediaType: application/vnd.confesi.masked-id
     masked-sequential-id:
       type: string
       minLength: 22
@@ -196,8 +203,13 @@ paths:
                 required:
                   - value
                 properties:
-                  posts:
-                    type: array
+                  value:
+                    type: 'object'
+                    required:
+                      - posts
+                    properties:
+                      posts:
+                        type: array
 
     post:
       summary: Create post
@@ -220,6 +232,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/success'
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'
+
+  /posts/{post_id}/vote:
+    put:
+      summary: Vote on post
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/masked-id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: number
+              enum:
+                - -1
+                - 0
+                - 1
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: 'object'
+                required:
+                  - value
+                properties:
+                  value:
+                    type: 'object'
+                    required:
+                      - up
+                      - down
+                    properties:
+                      up:
+                        type: integer
+                        minimum: 0
+                      down:
+                        type: integer
+                        minimum: 0
         '401':
           $ref: '#/components/responses/unauthenticated'
         '500':

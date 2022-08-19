@@ -98,6 +98,18 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 				.build(),
 			None,
 		),
+		posts.create_index(
+			IndexModel::builder()
+				.keys(doc! {"absolute_score": -1})
+				.build(),
+			None,
+		),
+		posts.create_index(
+			IndexModel::builder()
+				.keys(doc! {"trending_score": -1})
+				.build(),
+			None,
+		),
 
 		votes.create_index(
 			IndexModel::builder()
@@ -128,8 +140,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 	info!("Initializing database");
 
+	let mongo_client = MongoClient::with_uri_str(env::var("DB_CONNECT")?).await?;
 	let db =
-		MongoClient::with_uri_str(env::var("DB_CONNECT")?).await?
+		mongo_client
 		.default_database()
 		.expect("no default database");
 
@@ -155,6 +168,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.wrap(cors)
 			.wrap(HostCheckWrap(conf::HOST))
 			.wrap(Logger::default())
+			.app_data(web::Data::new(mongo_client.clone()))
 			.app_data(web::Data::new(db.clone()))
 			.app_data(web::Data::new(masking_key))
 			.service(services::auth::login)
@@ -163,6 +177,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::auth::register)
 			.service(services::posts::create)
 			.service(services::posts::list)
+			.service(services::posts::vote)
 	})
 		.bind(("0.0.0.0", 3000))?
 		.run()

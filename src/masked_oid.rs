@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 const TYPE_OBJECT_ID: u8 = 0;
 const TYPE_SEQUENTIAL_ID: u8 = 1;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct MaskedObjectId(
 	#[serde(with = "crate::base64_serde")]
 	[u8; 16]

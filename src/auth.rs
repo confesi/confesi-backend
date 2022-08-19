@@ -112,7 +112,6 @@ impl FromRequest for AuthenticatedUser {
 	fn from_request(req: &HttpRequest, _payload: &mut actix_web::dev::Payload) -> Self::Future {
 		let db = req.app_data::<web::Data<Database>>().expect("app_data should include a database client").clone();
 		let auth = authorization_from_request(req);
-		debug!("auth is {:?}", auth);
 
 		Box::pin(async move {
 			// TODO: request processing can take arbitrarily long, meaning operations might continue arbitrary long after an completed logout-all request. not ideal, but definitely not worth the overhead and restrictions of a request-wrapping transaction with MongoDB's causal consistency.

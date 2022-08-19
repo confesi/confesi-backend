@@ -28,3 +28,8 @@ pub const PERMITTED_ORIGINS: &[&str] = &[
 	"https://app.invalid",
 	"http://api-docs.localhost:8080",
 ];
+
+/// The reference point for the time component of vote calculations, in seconds since the Unix epoch.
+pub const TRENDING_EPOCH: i64 = 1640995200;  // 2022-01-01T00:00:00Z
+
+pub const TRENDING_DECAY: f64 = 103616.32918473207;  // 45000 ln 10

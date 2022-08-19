@@ -82,10 +82,13 @@ pub struct Post {
 	pub sequential_id: i32,
 	pub owner: ObjectId,
 	pub text: String,
-	pub score: i32,
+	pub votes_up: i32,
+	pub votes_down: i32,
+	pub absolute_score: i32,
+	pub trending_score: f64,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Vote {
 	pub post: ObjectId,
 	pub user: ObjectId,
