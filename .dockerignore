@@ -1,12 +1,8 @@
 *
-!config
-!controllers
+!Cargo.lock
+!Cargo.toml
 !Dockerfile
-!index.js
-!middlewares
-!models
-!package.json
-!package-lock.json
-!routes
-!utils
+!rustfmt.toml
+!src
 **/.*
+!.cargo

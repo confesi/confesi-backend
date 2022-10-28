@@ -8,9 +8,9 @@ services:
         protocol: tcp
         mode: ingress
     environment:
-      DB_CONNECT: mongodb://mongo/
-      ACCESS_TOKEN_SECRET:
-      REFRESH_TOKEN_SECRET:
+      DB_CONNECT: mongodb://mongo/db?readConcernLevel=majority
+      OID_SECRET:
+      RUST_LOG:
     read_only: true
     init: true
     depends_on:
@@ -21,6 +21,7 @@ services:
 
   mongo:
     image: mongo:5
+    command: --replSet rs0
     volumes:
       - database:/data/db
       - type: tmpfs
@@ -29,17 +30,27 @@ services:
     networks:
       - back-tier
 
-  create-secrets:
+  docs:
+    build: docs
+    ports:
+      - target: 8080
+        host_ip: 0.0.0.0
+        published: 8080
+        protocol: tcp
+        mode: ingress
+    environment:
+      SWAGGER_JSON: /openapi.yaml
+    init: true
+    networks:
+      - docs
+
+  lint:
     profiles:
-      - command
-    image: node:18-slim
-    command:
-      - 'node'
-      - '-e'
-      - |
-        let gen = () => crypto.randomBytes(32).toString("base64").slice(0, -1);
-        console.log("ACCESS_TOKEN_SECRET=" + gen());
-        console.log("REFRESH_TOKEN_SECRET=" + gen());
+      - lint
+    build:
+      context: .
+      target: lint
+    init: true
     network_mode: none
 
 volumes:
@@ -49,3 +60,4 @@ networks:
   front-tier:
   back-tier:
     internal: true
+  docs:

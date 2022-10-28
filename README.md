@@ -1,18 +1,21 @@
-## Confesi - Server Repo (NodeJS)
-### Installing the project
-#### Fork the repository
- 1. Create a Github account.
- 2. Go to https://github.com/mattrltrent/confessi-server
- 3. Go to the `main` branch and click the "Fork" button on the top right corner.
- 4. This will allow you to have your own copy of the project.
-#### Clone your fork to local machine
- 1. Open the directory on your computer where you want to put the code. For example, `mkdir project`.
- 2. Go into your newly created directory: `cd project`.
- 3. Open your newly forked repository on Github.
- 4. Click "Clone or Download" and copy the url.
- 5. Run the command `git clone <COPIED_URL_HERE>` in your `project` directory. This will download the project to your local machine.
-#### Create secrets
- 1. Inside the `confessi-server` directory, run `docker compose run --rm create-secrets > .env`.
+### Setting up the project
+
+1. Run `docker compose up -d mongo` to start the database server for the first time.
+2. Run `docker compose run --rm mongo mongosh mongodb://mongo/db --eval 'rs.initiate()'` to initialize the replica set.
+
+
 ### Running the project
- 1. Inside the `confessi-server` directory, run the command `docker compose up --build app`.
- 2. The server is now up and running!
+
+Run `docker compose up --build app` to start the app.
+
+
+### Starting fresh
+
+Sometimes, backwards-incompatible changes during early development will make it necessary to restart from an empty database.
+
+Run `docker compose down --remove-orphans --volumes` to remove all data, then start at **Setting up the project** again.
+
+
+### API documentation
+
+The API is documented in [docs/openapi.yaml](docs/openapi.yaml) and can be browsed at <http://api-docs.localhost:8080/> after starting the documentation server with `docker compose up --build docs`.
