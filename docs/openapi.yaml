@@ -37,6 +37,18 @@ components:
       maxLength: 32
       pattern: '^[0-9A-Za-z]+$'
       example: 'earlgrey'
+    votes:
+      type: 'object'
+      required:
+        - up
+        - down
+      properties:
+        up:
+          type: integer
+          minimum: 0
+        down:
+          type: integer
+          minimum: 0
   responses:
     unauthenticated:
       description: The authentication token is not valid (missing, malformed, fake, or expired).
@@ -210,6 +222,35 @@ paths:
                     properties:
                       posts:
                         type: array
+                        items:
+                          type: object
+                          required:
+                            - id
+                            - sequential_id
+                            - reply_context
+                            - text
+                            - created_at
+                            - votes
+                          properties:
+                            id:
+                              $ref: '#/components/schemas/masked-id'
+                            sequential_id:
+                              $ref: '#/components/schemas/masked-sequential-id'
+                            reply_context:
+                              anyOf:
+                                - type: 'null'
+                                - type: object
+                                  required:
+                                    - id
+                                  properties:
+                                    id:
+                                      $ref: '#/components/schemas/masked-id'
+                            text:
+                              type: string
+                            created_at:
+                              type: string
+                            votes:
+                              $ref: '#/components/schemas/votes'
 
     post:
       summary: Create post
@@ -266,17 +307,7 @@ paths:
                   - value
                 properties:
                   value:
-                    type: 'object'
-                    required:
-                      - up
-                      - down
-                    properties:
-                      up:
-                        type: integer
-                        minimum: 0
-                      down:
-                        type: integer
-                        minimum: 0
+                    $ref: '#/components/schemas/votes'
         '401':
           $ref: '#/components/responses/unauthenticated'
         '500':
