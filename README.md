@@ -1,7 +1,18 @@
 ### Setting up the project
 
 1. Run `docker compose up -d mongo` to start the database server for the first time.
-2. Run `docker compose run --rm mongo mongosh mongodb://mongo/db --eval 'rs.initiate()'` to initialize the replica set.
+2. To initialize the replica set, run
+
+    ```shell
+    docker compose run --rm mongo mongosh mongodb://mongo/db --eval '
+      rs.initiate({
+        _id: "rs0",
+        members: [
+          {_id: 0, host: "127.0.0.1"},
+        ],
+      })
+    '
+    ```
 
 
 ### Running the project

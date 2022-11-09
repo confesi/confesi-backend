@@ -8,7 +8,7 @@ services:
         protocol: tcp
         mode: ingress
     environment:
-      DB_CONNECT: mongodb://mongo/db?readConcernLevel=majority
+      DB_CONNECT: mongodb://mongo/db?directConnection=true&readConcernLevel=majority
       OID_SECRET:
       RUST_LOG:
     read_only: true
