@@ -312,3 +312,31 @@ paths:
           $ref: '#/components/responses/unauthenticated'
         '500':
           $ref: '#/components/responses/unexpected'
+
+  /schools/:
+    get:
+      summary: List schools along with distance to requester (based on IP address)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                    - distance
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  distance:
+                    # TODO: is description allowed here?
+                    description: Distance in kilometres.
+                    anyOf:
+                      - type: 'null'
+                      - type: number
+                        minimum: 0

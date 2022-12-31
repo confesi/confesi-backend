@@ -11,6 +11,7 @@ mod types;
 
 use std::env;
 use std::error::Error;
+use std::fs::File;
 use actix_cors::Cors;
 use actix_web::{
 	App,
@@ -24,7 +25,9 @@ use futures::{
 };
 use log::{
 	info,
+	warn,
 };
+use memmap::Mmap;
 use mongodb::{
 	Client as MongoClient,
 	Database,
@@ -38,18 +41,23 @@ use mongodb::options::{
 	CollationStrength,
 	IndexOptions,
 	ReadConcernLevel,
+	UpdateOptions,
 };
 
 use crate::masked_oid::MaskingKey;
 use crate::middleware::HostCheckWrap;
 use crate::types::{
 	Post,
+	School,
 	Session,
 	User,
 	Vote,
 };
 
+pub type GeoIpReader = &'static maxminddb::Reader<Mmap>;
+
 async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
+	let schools = db.collection::<School>("schools");
 	let users = db.collection::<User>("users");
 	let sessions = db.collection::<Session>("sessions");
 	let posts = db.collection::<Post>("posts");
@@ -111,6 +119,35 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 			None,
 		),
 
+		async {
+			schools.create_index(
+				IndexModel::builder()
+					.keys(doc! {"position": "2dsphere"})
+					.build(),
+				None,
+			).await?;
+
+			schools.update_one(
+				doc! {
+					"_id": {"$eq": "UVIC"},
+				},
+				doc! {
+					"$set": {
+						"name": "University of Victoria",
+						"position": {
+							"type": "Point",
+							"coordinates": [-123.3117, 48.4633],
+						},
+					},
+				},
+				UpdateOptions::builder()
+					.upsert(true)
+					.build(),
+			).await?;
+
+			Ok(())
+		},
+
 		votes.create_index(
 			IndexModel::builder()
 				.keys(doc! {"post": 1, "user": 1})
@@ -125,6 +162,13 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 	)?;
 
 	Ok(())
+}
+
+fn open_geoip_database() -> Result<GeoIpReader, Box<dyn Error>> {
+	let geoip_file = File::open("GeoLite2-City.mmdb")?;
+	let geoip_mmap = unsafe { Mmap::map(&geoip_file) }?;
+	let reader = maxminddb::Reader::from_source(geoip_mmap)?;
+	Ok(Box::leak(Box::new(reader)))
 }
 
 #[actix_web::main]
@@ -152,6 +196,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 	info!("Database initialized");
 
+	let geoip_reader = match open_geoip_database() {
+		Ok(geoip_reader) => Some(geoip_reader),
+		Err(err) => {
+			warn!("Failed to open GeoIP database: {}", err);
+			None
+		}
+	};
+
 	HttpServer::new(move || {
 		let cors =
 			Cors::default()
@@ -170,7 +222,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.wrap(Logger::default())
 			.app_data(web::Data::new(mongo_client.clone()))
 			.app_data(web::Data::new(db.clone()))
+			.app_data(web::Data::new(geoip_reader))
 			.app_data(web::Data::new(masking_key))
+			.service(services::schools_list)
 			.service(services::auth::login)
 			.service(services::auth::logout)
 			.service(services::auth::logout_all)
