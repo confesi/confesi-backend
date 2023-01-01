@@ -88,6 +88,13 @@ pub struct Post {
 	pub trending_score: f64,
 }
 
+#[derive(Deserialize)]
+pub struct School {
+	#[serde(rename = "_id")]
+	pub id: String,
+	pub name: String,
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct Vote {
 	pub post: ObjectId,

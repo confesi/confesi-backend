@@ -23,5 +23,6 @@ RUN \
 
 FROM debian:bullseye-slim
 WORKDIR /app
+COPY GeoLite2-City.mmdb ./
 COPY --from=build /app/confesi-server /app/Cargo.lock ./
 CMD ["./confesi-server"]
