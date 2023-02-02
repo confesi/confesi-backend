@@ -29,16 +29,16 @@ components:
         - error
       properties:
         error:
-          type: 'null'
-      example: {error: null}
+          type: "null"
+      example: { error: null }
     username:
       type: string
       minLength: 1
       maxLength: 32
-      pattern: '^[0-9A-Za-z]+$'
-      example: 'earlgrey'
+      pattern: "^[0-9A-Za-z]+$"
+      example: "earlgrey"
     votes:
-      type: 'object'
+      type: "object"
       required:
         - up
         - down
@@ -96,16 +96,16 @@ paths:
                 - username
               properties:
                 username:
-                  $ref: '#/components/schemas/username'
+                  $ref: "#/components/schemas/username"
                   description: The username. Case-insensitive.
       responses:
-        '200':
+        "200":
           description: Authentication was successful.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/success'
-        '400':
+                $ref: "#/components/schemas/success"
+        "400":
           description: Authentication was unsuccessful.
           content:
             application/json:
@@ -118,38 +118,38 @@ paths:
                     type: string
                     enum:
                       - UsernameNotFound
-        '401':
-          $ref: '#/components/responses/unauthenticated'
-        '500':
-          $ref: '#/components/responses/unexpected'
+        "401":
+          $ref: "#/components/responses/unauthenticated"
+        "500":
+          $ref: "#/components/responses/unexpected"
 
   /logout:
     post:
       responses:
-        '200':
+        "200":
           description: The requesting session was valid, and was invalidated successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/success'
-        '401':
-          $ref: '#/components/responses/unauthenticated'
-        '500':
-          $ref: '#/components/responses/unexpected'
+                $ref: "#/components/schemas/success"
+        "401":
+          $ref: "#/components/responses/unauthenticated"
+        "500":
+          $ref: "#/components/responses/unexpected"
 
   /logout-all:
     post:
       responses:
-        '200':
+        "200":
           description: All sessions belonging to the user were invalidated successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/success'
-        '401':
-          $ref: '#/components/responses/unauthenticated'
-        '500':
-          $ref: '#/components/responses/unexpected'
+                $ref: "#/components/schemas/success"
+        "401":
+          $ref: "#/components/responses/unauthenticated"
+        "500":
+          $ref: "#/components/responses/unexpected"
 
   /users/:
     post:
@@ -165,16 +165,16 @@ paths:
                 - username
               properties:
                 username:
-                  $ref: '#/components/schemas/username'
+                  $ref: "#/components/schemas/username"
                   description: The new account’s username.
       responses:
-        '200':
+        "200":
           description: The account was created successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/success'
-        '409':
+                $ref: "#/components/schemas/success"
+        "409":
           description: An error occurred creating the account.
           content:
             application/json:
@@ -186,8 +186,8 @@ paths:
                   type: string
                   enum:
                     - UsernameTaken
-        '500':
-          $ref: '#/components/responses/unexpected'
+        "500":
+          $ref: "#/components/responses/unexpected"
 
   /posts/:
     get:
@@ -205,18 +205,18 @@ paths:
           in: query
           required: false
           schema:
-            $ref: '#/components/schemas/masked-sequential-id'
+            $ref: "#/components/schemas/masked-sequential-id"
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                type: 'object'
+                type: "object"
                 required:
                   - value
                 properties:
                   value:
-                    type: 'object'
+                    type: "object"
                     required:
                       - posts
                     properties:
@@ -233,24 +233,24 @@ paths:
                             - votes
                           properties:
                             id:
-                              $ref: '#/components/schemas/masked-id'
+                              $ref: "#/components/schemas/masked-id"
                             sequential_id:
-                              $ref: '#/components/schemas/masked-sequential-id'
+                              $ref: "#/components/schemas/masked-sequential-id"
                             reply_context:
                               anyOf:
-                                - type: 'null'
+                                - type: "null"
                                 - type: object
                                   required:
                                     - id
                                   properties:
                                     id:
-                                      $ref: '#/components/schemas/masked-id'
+                                      $ref: "#/components/schemas/masked-id"
                             text:
                               type: string
                             created_at:
                               type: string
                             votes:
-                              $ref: '#/components/schemas/votes'
+                              $ref: "#/components/schemas/votes"
 
     post:
       summary: Create post
@@ -268,15 +268,15 @@ paths:
                   minLength: 1
                   maxLength: 1000
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/success'
-        '401':
-          $ref: '#/components/responses/unauthenticated'
-        '500':
-          $ref: '#/components/responses/unexpected'
+                $ref: "#/components/schemas/success"
+        "401":
+          $ref: "#/components/responses/unauthenticated"
+        "500":
+          $ref: "#/components/responses/unexpected"
 
   /posts/{post_id}/vote:
     put:
@@ -286,7 +286,7 @@ paths:
           in: path
           required: true
           schema:
-            $ref: '#/components/schemas/masked-id'
+            $ref: "#/components/schemas/masked-id"
       requestBody:
         required: true
         content:
@@ -298,26 +298,26 @@ paths:
                 - 0
                 - 1
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                type: 'object'
+                type: "object"
                 required:
                   - value
                 properties:
                   value:
-                    $ref: '#/components/schemas/votes'
-        '401':
-          $ref: '#/components/responses/unauthenticated'
-        '500':
-          $ref: '#/components/responses/unexpected'
+                    $ref: "#/components/schemas/votes"
+        "401":
+          $ref: "#/components/responses/unauthenticated"
+        "500":
+          $ref: "#/components/responses/unexpected"
 
   /schools/:
     get:
       summary: List schools along with distance to requester (based on IP address)
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -337,6 +337,6 @@ paths:
                     # TODO: is description allowed here?
                     description: Distance in kilometres.
                     anyOf:
-                      - type: 'null'
+                      - type: "null"
                       - type: number
                         minimum: 0
