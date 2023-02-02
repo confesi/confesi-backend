@@ -94,6 +94,86 @@ pub struct Created {
 	pub id: MaskedObjectId,
 }
 
+//* MATT
+
+#[derive(Deserialize)]
+#[serde(tag = "sort", rename_all = "kebab-case")]
+pub enum HottestQuery {
+	PastDate { date: DateTime },
+	Today,
+}
+
+#[get("/hottest/")]
+pub async fn daily_hottest(
+	db: web::Data<Database>,
+	masking_key: web::Data<&'static MaskingKey>,
+	query: web::Query<HottestQuery>,
+) -> ApiResult<Box<[Detail]>, ()> {
+	let sort: Document = doc! {"absolute_score": -1}; // What qualifies a post as "hottest" can change in the future
+	let find_query: Document;
+	match &*query {
+		HottestQuery::PastDate { date } => {
+			// TODO: if date is in future
+			if (true) {
+				return Err(Failure::BadRequest("date can't be in the future"));
+			}
+			find_query = doc! {
+				"$and": [
+					{"created_date": {"$gt": "OLDEST_DATE_BASED_ON_PASSED_DATE"}},
+					{"created_date": {"$lt": "NEWEST_DATE_BASED_ON_PASSED_DATE"}},
+				]
+			};
+		}
+		HottestQuery::Today => {
+			find_query = doc! {
+				"$and": [
+					{"created_date": {"$gt": "OLDEST_DATE"}},
+					{"created_date": {"$lt": "NEWEST_DATE"}},
+				]
+			};
+		}
+	}
+
+	let posts =
+		db.collection::<Post>("posts")
+			.find(
+				find_query,
+				FindOptions::builder()
+					.sort(sort)
+					.limit(i64::from(conf::HOTTEST_POSTS_PER_PAGE))
+					.build(),
+			)
+			.await
+			.map_err(to_unexpected!("Getting posts cursor failed"))?
+			.map_ok(|post| {
+				Ok(Detail {
+					id: masking_key.mask(&post.id),
+					sequential_id: masking_key
+						.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
+					reply_context: None,
+					text: post.text,
+					created_at: (post
+						.id
+						.timestamp()
+						.try_to_rfc3339_string()
+						.map_err(to_unexpected!("Formatting post timestamp failed"))?),
+					votes: Votes {
+						up: u32::try_from(post.votes_up).unwrap(),
+						down: u32::try_from(post.votes_down).unwrap(),
+					},
+				})
+			})
+			.try_collect::<Vec<Result<Detail, Failure<()>>>>()
+			.await
+			.map_err(to_unexpected!("Getting posts failed"))?
+			.into_iter()
+			.collect::<Result<Vec<Detail>, Failure<()>>>()?;
+
+	success(posts.into())
+}
+
+//* MATT
+
 #[get("/posts/")]
 pub async fn list(
 	db: web::Data<Database>,
