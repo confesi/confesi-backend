@@ -86,6 +86,7 @@ pub struct Post {
 	pub votes_down: i32,
 	pub absolute_score: i32,
 	pub trending_score: f64,
+	pub created_at: DateTime,
 }
 
 #[derive(Deserialize)]
