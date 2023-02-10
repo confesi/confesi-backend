@@ -204,6 +204,5 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	.bind(("0.0.0.0", 3000))?
 	.run()
 	.await?;
-
 	Ok(())
 }

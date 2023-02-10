@@ -5,7 +5,6 @@ use actix_web::{get, post, put};
 use chrono::{Timelike, Utc};
 use futures::TryStreamExt;
 use log::{debug, error, info};
-use mongodb::bson::oid::ObjectId;
 use mongodb::bson::{doc, DateTime, Document};
 use mongodb::error::{ErrorKind, WriteFailure};
 use mongodb::options::{FindOneOptions, FindOptions};
@@ -41,7 +40,7 @@ pub struct Detail {
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "sort", rename_all = "kebab-case")]
+#[serde(tag = "date", rename_all = "kebab-case")]
 pub enum ListQuery {
 	Recent { before: Option<MaskedSequentialId> },
 	Trending,
@@ -82,6 +81,8 @@ pub async fn daily_hottest(
 		.unwrap()
 		.with_second(0)
 		.unwrap();
+	let yesterday_at_midnight: chrono::DateTime<Utc> =
+		today_at_midnight - chrono::Duration::days(1);
 	match &*query {
 		HottestQuery::PastDate { date } => {
 			// If date is from today, or in the future
@@ -100,12 +101,14 @@ pub async fn daily_hottest(
 		HottestQuery::Yesterday => {
 			find_query = doc! {
 				"$and": [
-					{"created_date": {"$gt": "OLDEST_DATE"}},
-					{"created_date": {"$lt": "NEWEST_DATE"}},
+					{"created_date": {"$gt": format!("{}", {yesterday_at_midnight})}},
+					{"created_date": {"$lt": format!("{}", {today_at_midnight})}},
 				]
 			};
 		}
 	}
+
+	println!("RESULTS: {}", find_query);
 
 	let posts = db
 		.collection::<Post>("posts")
@@ -126,8 +129,7 @@ pub async fn daily_hottest(
 				reply_context: None,
 				text: post.text,
 				created_at: (post
-					.id
-					.timestamp()
+					.created_at
 					.try_to_rfc3339_string()
 					.map_err(to_unexpected!("Formatting post timestamp failed"))?),
 				votes: Votes {
@@ -196,8 +198,7 @@ pub async fn list(
 				reply_context: None,
 				text: post.text,
 				created_at: (post
-					.id
-					.timestamp()
+					.created_at
 					.try_to_rfc3339_string()
 					.map_err(to_unexpected!("Formatting post timestamp failed"))?),
 				votes: Votes {
@@ -239,6 +240,7 @@ pub async fn create(
 		"votes_down": 0,
 		"absolute_score": 0,
 		"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
+		"created_at": DateTime::now(),
 	};
 	let mut attempt = 0;
 	let insertion = loop {
