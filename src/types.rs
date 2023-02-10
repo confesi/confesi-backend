@@ -1,25 +1,15 @@
-pub use self::token::{
-	SessionToken,
-	SessionTokenHash,
-};
+pub use self::token::{SessionToken, SessionTokenHash};
 
+use blake2::digest::consts::U16;
+use blake2::{Blake2b, Digest};
+use mongodb::bson::oid::ObjectId;
+use mongodb::bson::spec::BinarySubtype;
+use mongodb::bson::{Binary, Bson, DateTime};
+use rand::RngCore;
+use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
 use std::str::{self, FromStr};
-use blake2::{
-	Blake2b,
-	Digest,
-};
-use blake2::digest::consts::U16;
-use mongodb::bson::{
-	Binary,
-	Bson,
-	DateTime,
-};
-use mongodb::bson::oid::ObjectId;
-use mongodb::bson::spec::BinarySubtype;
-use rand::RngCore;
-use serde::{Deserialize, Serialize};
 
 use crate::conf;
 
@@ -43,7 +33,9 @@ impl TryFrom<String> for Username {
 	type Error = UsernameInvalid;
 
 	fn try_from(s: String) -> Result<Self, Self::Error> {
-		if (1..=conf::USERNAME_MAX_LENGTH).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_alphanumeric()) {
+		if (1..=conf::USERNAME_MAX_LENGTH).contains(&s.len())
+			&& s.bytes().all(|b| b.is_ascii_alphanumeric())
+		{
 			Ok(Self(s))
 		} else {
 			Err(UsernameInvalid)
@@ -107,9 +99,7 @@ mod token {
 
 	/// A 120-bit bearer token.
 	#[derive(Deserialize, Serialize)]
-	pub struct SessionToken(
-		[u8; 24]
-	);
+	pub struct SessionToken([u8; 24]);
 
 	impl SessionToken {
 		pub fn generate() -> Self {
@@ -181,9 +171,7 @@ mod token {
 		type Error = InvalidHashLength;
 
 		fn try_from(b: Binary) -> Result<Self, Self::Error> {
-			b.bytes.try_into()
-				.map(Self)
-				.map_err(|_| InvalidHashLength)
+			b.bytes.try_into().map(Self).map_err(|_| InvalidHashLength)
 		}
 	}
 
