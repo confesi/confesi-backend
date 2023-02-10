@@ -6,6 +6,7 @@ use actix_web::{
 	put,
 };
 use actix_web::web;
+use chrono::{Timelike, Utc};
 use futures::{
 	TryStreamExt,
 };
@@ -100,9 +101,10 @@ pub struct Created {
 #[serde(tag = "sort", rename_all = "kebab-case")]
 pub enum HottestQuery {
 	PastDate { date: DateTime },
-	Today,
+	Yesterday,
 }
 
+// Returns the hottest posts created yesterday, or from a specific date.
 #[get("/hottest/")]
 pub async fn daily_hottest(
 	db: web::Data<Database>,
@@ -111,11 +113,20 @@ pub async fn daily_hottest(
 ) -> ApiResult<Box<[Detail]>, ()> {
 	let sort: Document = doc! {"absolute_score": -1}; // What qualifies a post as "hottest" can change in the future
 	let find_query: Document;
+	let today_at_midnight: chrono::DateTime<Utc> = Utc::now()
+		.with_hour(0)
+		.unwrap()
+		.with_minute(0)
+		.unwrap()
+		.with_second(0)
+		.unwrap();
 	match &*query {
 		HottestQuery::PastDate { date } => {
-			// TODO: if date is in future
-			if (true) {
-				return Err(Failure::BadRequest("date can't be in the future"));
+			// If date is from today, or in the future
+			if (date.timestamp_millis() >= today_at_midnight.timestamp_millis()) {
+				return Err(Failure::BadRequest(
+					"DateTime must be from yesterday, or older",
+				));
 			}
 			find_query = doc! {
 				"$and": [
@@ -124,7 +135,7 @@ pub async fn daily_hottest(
 				]
 			};
 		}
-		HottestQuery::Today => {
+		HottestQuery::Yesterday => {
 			find_query = doc! {
 				"$and": [
 					{"created_date": {"$gt": "OLDEST_DATE"}},
