@@ -1,15 +1,16 @@
-use std::convert::TryFrom;
-
 use actix_web::web;
 use actix_web::{get, post, put};
-use chrono::{Timelike, Utc};
+use chrono::{LocalResult, NaiveDateTime, TimeZone, Timelike, Utc};
 use futures::TryStreamExt;
 use log::{debug, error, info};
-use mongodb::bson::{doc, DateTime, Document};
+use mongodb::bson::{doc, Bson, DateTime, Document};
 use mongodb::error::{ErrorKind, WriteFailure};
 use mongodb::options::{FindOneOptions, FindOptions};
 use mongodb::{Client as MongoClient, Database};
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
+use std::str::FromStr;
+use std::time::{Duration, UNIX_EPOCH};
 
 use crate::api_types::{failure, success, ApiResult, Failure};
 use crate::auth::AuthenticatedUser;
@@ -40,7 +41,7 @@ pub struct Detail {
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "date", rename_all = "kebab-case")]
+#[serde(tag = "sort", rename_all = "kebab-case")]
 pub enum ListQuery {
 	Recent { before: Option<MaskedSequentialId> },
 	Trending,
@@ -56,12 +57,12 @@ pub struct Created {
 	pub id: MaskedObjectId,
 }
 
-//* MATT
+///! MATT - START
 
 #[derive(Deserialize)]
 #[serde(tag = "sort", rename_all = "kebab-case")]
 pub enum HottestQuery {
-	PastDate { date: DateTime },
+	PastDate { date: String },
 	Yesterday,
 }
 
@@ -81,34 +82,53 @@ pub async fn daily_hottest(
 		.unwrap()
 		.with_second(0)
 		.unwrap();
-	let yesterday_at_midnight: chrono::DateTime<Utc> =
-		today_at_midnight - chrono::Duration::days(1);
 	match &*query {
 		HottestQuery::PastDate { date } => {
-			// If date is from today, or in the future
-			if (date.timestamp_millis() >= today_at_midnight.timestamp_millis()) {
-				return Err(Failure::BadRequest(
-					"DateTime must be from yesterday, or older",
-				));
+			// Parse date
+			if let Ok(date) = u64::from_str(date) {
+				// If date/time is from today, or in the future, reject it
+				// TODO: fix the unwrap here
+				if (date >= today_at_midnight.timestamp_millis().try_into().unwrap()) {
+					return Err(Failure::BadRequest(
+						"date/time must be from yesterday or older",
+					));
+				}
+				println!("MILS: {date}");
+				let lower_date_bound =
+					chrono::DateTime::<Utc>::from(UNIX_EPOCH + Duration::from_millis(date))
+						.with_hour(0)
+						.unwrap()
+						.with_minute(0)
+						.unwrap()
+						.with_second(0)
+						.unwrap();
+				let upper_date_bound = lower_date_bound + chrono::Duration::days(1);
+				println!("UPPER: {}, LOWER: {}", { upper_date_bound }, {
+					lower_date_bound
+				});
+				find_query = doc! {
+					"$and": [
+						{"created_at": {"$gte": Bson::DateTime(DateTime::from_millis(lower_date_bound.timestamp_millis()))}},
+						{"created_at": {"$lt":Bson::DateTime(DateTime::from_millis(upper_date_bound.timestamp_millis()))}},
+					]
+				};
+			} else {
+				return Err(Failure::BadRequest("Invalid date format."));
 			}
-			find_query = doc! {
-				"$and": [
-					{"created_date": {"$gt": "OLDEST_DATE_BASED_ON_PASSED_DATE"}},
-					{"created_date": {"$lt": "NEWEST_DATE_BASED_ON_PASSED_DATE"}},
-				]
-			};
 		}
 		HottestQuery::Yesterday => {
+			let yesterday_at_midnight: chrono::DateTime<Utc> =
+				today_at_midnight - chrono::Duration::days(1);
 			find_query = doc! {
 				"$and": [
-					{"created_date": {"$gt": format!("{}", {yesterday_at_midnight})}},
-					{"created_date": {"$lt": format!("{}", {today_at_midnight})}},
+					{"created_at": {"$gte": Bson::DateTime(DateTime::from_millis(yesterday_at_midnight.timestamp_millis()))}},
+					{"created_at": {"$lt": Bson::DateTime(DateTime::from_millis(today_at_midnight.timestamp_millis()))}},
 				]
 			};
 		}
 	}
 
-	println!("RESULTS: {}", find_query);
+	println!("QUERY: {}", find_query);
 
 	let posts = db
 		.collection::<Post>("posts")
@@ -128,10 +148,10 @@ pub async fn daily_hottest(
 					.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
 				reply_context: None,
 				text: post.text,
-				created_at: (post
+				created_at: post
 					.created_at
 					.try_to_rfc3339_string()
-					.map_err(to_unexpected!("Formatting post timestamp failed"))?),
+					.map_err(to_unexpected!("Formatting post timestamp failed"))?,
 				votes: Votes {
 					up: u32::try_from(post.votes_up).unwrap(),
 					down: u32::try_from(post.votes_down).unwrap(),
@@ -147,7 +167,7 @@ pub async fn daily_hottest(
 	success(posts.into())
 }
 
-//* MATT
+///! MATT - END
 
 #[get("/posts/")]
 pub async fn list(
@@ -178,7 +198,7 @@ pub async fn list(
 			sort = doc! {"trending_score": -1};
 		}
 	}
-
+	println!("GOT HERE~!~!");
 	let posts = db
 		.collection::<Post>("posts")
 		.find(
@@ -197,10 +217,10 @@ pub async fn list(
 					.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
 				reply_context: None,
 				text: post.text,
-				created_at: (post
+				created_at: post
 					.created_at
 					.try_to_rfc3339_string()
-					.map_err(to_unexpected!("Formatting post timestamp failed"))?),
+					.map_err(to_unexpected!("Formatting post timestamp failed"))?,
 				votes: Votes {
 					up: u32::try_from(post.votes_up).unwrap(),
 					down: u32::try_from(post.votes_down).unwrap(),
@@ -232,7 +252,14 @@ pub async fn create(
 	if request.text.len() > conf::POST_MAX_SIZE {
 		return Err(Failure::BadRequest("oversized post text"));
 	}
-
+	// let TEST_DATE_1: chrono::DateTime<Utc> = Utc::now()
+	// 	.with_hour(0)
+	// 	.unwrap()
+	// 	.with_minute(0)
+	// 	.unwrap()
+	// 	.with_second(0)
+	// 	.unwrap();
+	// let TEST_DATE_2: chrono::DateTime<Utc> = TEST_DATE_1 - chrono::Duration::days(3);
 	let mut insert_doc = doc! {
 		"owner": &user.id,
 		"text": &request.text,
@@ -240,7 +267,7 @@ pub async fn create(
 		"votes_down": 0,
 		"absolute_score": 0,
 		"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
-		"created_at": DateTime::now(),
+		"created_at": DateTime::now(), // Bson::DateTime(DateTime::from_millis(TEST_DATE_2.timestamp_millis())),
 	};
 	let mut attempt = 0;
 	let insertion = loop {
