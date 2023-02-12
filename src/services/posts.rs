@@ -1,6 +1,6 @@
 use actix_web::web;
 use actix_web::{get, post, put};
-use chrono::{LocalResult, NaiveDateTime, TimeZone, Timelike, Utc};
+use chrono::{Duration, Timelike, Utc};
 use futures::TryStreamExt;
 use log::{debug, error, info};
 use mongodb::bson::{doc, Bson, DateTime, Document};
@@ -9,10 +9,8 @@ use mongodb::options::{FindOneOptions, FindOptions};
 use mongodb::{Client as MongoClient, Database};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
-use std::str::FromStr;
-use std::time::{Duration, UNIX_EPOCH};
 
-use crate::api_types::{failure, success, ApiResult, Failure};
+use crate::api_types::{success, ApiResult, Failure};
 use crate::auth::AuthenticatedUser;
 use crate::conf;
 use crate::masked_oid::{self, MaskedObjectId, MaskedSequentialId, MaskingKey};
@@ -57,8 +55,6 @@ pub struct Created {
 	pub id: MaskedObjectId,
 }
 
-///! MATT - START
-
 #[derive(Deserialize)]
 #[serde(tag = "sort", rename_all = "kebab-case")]
 pub enum HottestQuery {
@@ -67,13 +63,14 @@ pub enum HottestQuery {
 }
 
 // Returns the hottest posts created yesterday, or from a specific date.
-#[get("/hottest/")]
+#[get("/posts/hottest/")]
 pub async fn daily_hottest(
 	db: web::Data<Database>,
 	masking_key: web::Data<&'static MaskingKey>,
 	query: web::Query<HottestQuery>,
 ) -> ApiResult<Box<[Detail]>, ()> {
-	let sort: Document = doc! {"absolute_score": -1}; // What qualifies a post as "hottest" can change in the future
+	// What qualifies a post as "hottest" can change in the future. Currently sorting by a post's "absolute score".
+	let sort: Document = doc! {"absolute_score": -1};
 	let find_query: Document;
 	let today_at_midnight: chrono::DateTime<Utc> = Utc::now()
 		.with_hour(0)
@@ -83,42 +80,45 @@ pub async fn daily_hottest(
 		.with_second(0)
 		.unwrap();
 	match &*query {
+		// You're asking for a date in the past.
 		HottestQuery::PastDate { date } => {
-			// Parse date
-			if let Ok(date) = u64::from_str(date) {
-				// If date/time is from today, or in the future, reject it
-				// TODO: fix the unwrap here
-				if (date >= today_at_midnight.timestamp_millis().try_into().unwrap()) {
+			if let Ok(ms_since_date) = (*date).parse::<i64>() {
+				if ms_since_date >= today_at_midnight.timestamp_millis() {
 					return Err(Failure::BadRequest(
-						"date/time must be from yesterday or older",
+						"datetime must be from yesterday or older",
 					));
 				}
-				println!("MILS: {date}");
-				let lower_date_bound =
-					chrono::DateTime::<Utc>::from(UNIX_EPOCH + Duration::from_millis(date))
-						.with_hour(0)
-						.unwrap()
-						.with_minute(0)
-						.unwrap()
-						.with_second(0)
-						.unwrap();
-				let upper_date_bound = lower_date_bound + chrono::Duration::days(1);
-				println!("UPPER: {}, LOWER: {}", { upper_date_bound }, {
-					lower_date_bound
-				});
+				let lower_bound = chrono::DateTime::<Utc>::from_utc(
+					match chrono::NaiveDateTime::from_timestamp_opt(ms_since_date / 1000, 0) {
+						Some(date) => date
+							.with_hour(0)
+							.unwrap()
+							.with_minute(0)
+							.unwrap()
+							.with_second(0)
+							.unwrap(),
+						None => return Err(Failure::BadRequest("invalid datetime passed")),
+					},
+					Utc,
+				);
+				let upper_bound = lower_bound + Duration::days(1);
+				// Filter by date range, where [`lower_bound`] is midnight of the day you
+				// requested, and [`upper_bound`] is 24 hours ahead of [`lower_bound`].
 				find_query = doc! {
 					"$and": [
-						{"created_at": {"$gte": Bson::DateTime(DateTime::from_millis(lower_date_bound.timestamp_millis()))}},
-						{"created_at": {"$lt":Bson::DateTime(DateTime::from_millis(upper_date_bound.timestamp_millis()))}},
+						{"created_at": {"$gte": Bson::DateTime(DateTime::from_millis(lower_bound.timestamp_millis()))}},
+						{"created_at": {"$lt": Bson::DateTime(DateTime::from_millis(upper_bound.timestamp_millis()))}},
 					]
 				};
 			} else {
-				return Err(Failure::BadRequest("Invalid date format."));
+				return Err(Failure::BadRequest("invalid datetime passed"));
 			}
 		}
+		// You're asking for yesterday's date specifically.
 		HottestQuery::Yesterday => {
 			let yesterday_at_midnight: chrono::DateTime<Utc> =
 				today_at_midnight - chrono::Duration::days(1);
+			// Filter by date range between yesterday at midnight and today at midnight.
 			find_query = doc! {
 				"$and": [
 					{"created_at": {"$gte": Bson::DateTime(DateTime::from_millis(yesterday_at_midnight.timestamp_millis()))}},
@@ -127,8 +127,6 @@ pub async fn daily_hottest(
 			};
 		}
 	}
-
-	println!("QUERY: {}", find_query);
 
 	let posts = db
 		.collection::<Post>("posts")
@@ -167,8 +165,6 @@ pub async fn daily_hottest(
 	success(posts.into())
 }
 
-///! MATT - END
-
 #[get("/posts/")]
 pub async fn list(
 	db: web::Data<Database>,
@@ -198,7 +194,6 @@ pub async fn list(
 			sort = doc! {"trending_score": -1};
 		}
 	}
-	println!("GOT HERE~!~!");
 	let posts = db
 		.collection::<Post>("posts")
 		.find(
@@ -252,14 +247,6 @@ pub async fn create(
 	if request.text.len() > conf::POST_MAX_SIZE {
 		return Err(Failure::BadRequest("oversized post text"));
 	}
-	// let TEST_DATE_1: chrono::DateTime<Utc> = Utc::now()
-	// 	.with_hour(0)
-	// 	.unwrap()
-	// 	.with_minute(0)
-	// 	.unwrap()
-	// 	.with_second(0)
-	// 	.unwrap();
-	// let TEST_DATE_2: chrono::DateTime<Utc> = TEST_DATE_1 - chrono::Duration::days(3);
 	let mut insert_doc = doc! {
 		"owner": &user.id,
 		"text": &request.text,
@@ -267,7 +254,7 @@ pub async fn create(
 		"votes_down": 0,
 		"absolute_score": 0,
 		"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
-		"created_at": DateTime::now(), // Bson::DateTime(DateTime::from_millis(TEST_DATE_2.timestamp_millis())),
+		"created_at": DateTime::now(),
 	};
 	let mut attempt = 0;
 	let insertion = loop {
