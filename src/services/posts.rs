@@ -62,7 +62,11 @@ pub enum HottestQuery {
 	Yesterday,
 }
 
-// Returns the hottest posts created yesterday, or from a specific date.
+/// Returns the hottest posts created yesterday, or from a specific date.
+///
+/// Example request for yesterday's hottest: `http://localhost:3000/posts/hottest/?sort=yesterday`.
+///
+/// Example request for the hottest from February 8, 2023: `http://localhost:3000/posts/hottest/?sort=past-date&date=1675852775000`.
 #[get("/posts/hottest/")]
 pub async fn daily_hottest(
 	db: web::Data<Database>,
@@ -80,7 +84,7 @@ pub async fn daily_hottest(
 		.with_second(0)
 		.unwrap();
 	match &*query {
-		// You're asking for a date in the past.
+		// You're asking for a date in the past (older than or equal to yesterday).
 		HottestQuery::PastDate { date } => {
 			if let Ok(ms_since_date) = (*date).parse::<i64>() {
 				if ms_since_date >= today_at_midnight.timestamp_millis() {
