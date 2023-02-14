@@ -72,17 +72,22 @@ pub struct Post {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
 	pub sequential_id: i32,
+	// If this post is replying (meaning it's a "child") to another post.
 	pub reply_context: Option<ObjectId>,
 	pub owner: ObjectId,
+	// Unique school identifier.
 	pub school_id: String,
 	pub header_text: String,
 	pub body_text: String,
+	// Genre of the post.
 	pub genre: PostGenre,
 	pub votes_up: i32,
 	pub votes_down: i32,
 	pub absolute_score: i32,
 	pub trending_score: f64,
 	pub created_at: DateTime,
+	// If the user wants this post associated with them privately (aka, do they want it
+	// linked to their private profile so they can find it easily), or completely disassociated.
 	pub associated_with_user: bool,
 }
 
