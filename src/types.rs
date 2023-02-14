@@ -74,6 +74,7 @@ pub struct Post {
 	pub sequential_id: i32,
 	pub reply_context: Option<ObjectId>,
 	pub owner: ObjectId,
+	pub school_id: String,
 	pub header_text: String,
 	pub body_text: String,
 	pub genre: PostGenre,
@@ -82,6 +83,7 @@ pub struct Post {
 	pub absolute_score: i32,
 	pub trending_score: f64,
 	pub created_at: DateTime,
+	pub associated_with_user: bool,
 }
 
 #[derive(Deserialize)]

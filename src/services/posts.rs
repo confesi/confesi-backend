@@ -15,7 +15,7 @@ use crate::auth::AuthenticatedUser;
 use crate::conf;
 use crate::masked_oid::{self, MaskedObjectId, MaskedSequentialId, MaskingKey};
 use crate::to_unexpected;
-use crate::types::{Post, PostGenre, Vote};
+use crate::types::{Post, PostGenre, School, Vote};
 
 #[derive(Serialize, Deserialize)]
 pub struct ReplyContext {
@@ -33,6 +33,7 @@ pub struct Detail {
 	pub id: MaskedObjectId,
 	pub sequential_id: MaskedSequentialId,
 	pub reply_context: Option<MaskedObjectId>,
+	pub school_id: String,
 	pub genre: PostGenre,
 	pub body_text: String,
 	pub header_text: String,
@@ -49,10 +50,12 @@ pub enum ListQuery {
 
 #[derive(Deserialize)]
 pub struct CreateRequest {
+	pub school_id: String,
 	pub reply_context: Option<ReplyContext>,
 	pub header_text: String,
 	pub body_text: String,
 	pub genre: PostGenre,
+	pub associated_with_user: bool,
 }
 
 #[derive(Serialize)]
@@ -150,6 +153,7 @@ pub async fn daily_hottest(
 		.map_err(to_unexpected!("Getting posts cursor failed"))?
 		.map_ok(|post| {
 			Ok(Detail {
+				school_id: post.school_id,
 				id: masking_key.mask(&post.id),
 				sequential_id: masking_key
 					.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
@@ -220,6 +224,7 @@ pub async fn list(
 		.map_err(to_unexpected!("Getting posts cursor failed"))?
 		.map_ok(|post| {
 			Ok(Detail {
+				school_id: post.school_id,
 				id: masking_key.mask(&post.id),
 				sequential_id: masking_key
 					.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
@@ -261,12 +266,12 @@ pub async fn create(
 	user: AuthenticatedUser,
 	request: web::Json<CreateRequest>,
 ) -> ApiResult<Created, ()> {
+	// Preliminary checks to check if post content is valid.
 	if request.body_text.len() > conf::POST_BODY_MAX_SIZE
 		|| request.header_text.len() > conf::POST_HEADER_MAX_SIZE
 	{
 		return Err(Failure::BadRequest("oversized post header or body text"));
 	}
-
 	let reply_context_id = match &request.reply_context {
 		Some(masked_id) => Some(
 			masking_key
@@ -275,6 +280,12 @@ pub async fn create(
 		),
 		None => None,
 	};
+	// Secondary check to see if their [`school_id`] is valid.
+	db.collection::<School>("schools")
+		.find_one(doc! {"_id": {"$eq": request.school_id.clone()}}, None)
+		.await
+		.map_err(to_unexpected!("validating school's existence failed"))?
+		.ok_or(Failure::BadRequest("invalid school id"))?;
 
 	let mut insert_doc: Document;
 	match to_bson(&request.genre) {
@@ -284,12 +295,14 @@ pub async fn create(
 				"reply_context": &reply_context_id,
 				"header_text": &request.header_text,
 				"body_text": &request.body_text,
+				"school_id": &request.school_id,
 				"genre": genre,
 				"votes_up": 0,
 				"votes_down": 0,
 				"absolute_score": 0,
 				"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
 				"created_at": DateTime::now(),
+				"associated_with_user": request.associated_with_user,
 			};
 		}
 		Err(_) => return Err(Failure::Unexpected),
