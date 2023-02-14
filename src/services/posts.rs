@@ -17,7 +17,7 @@ use crate::masked_oid::{self, MaskedObjectId, MaskedSequentialId, MaskingKey};
 use crate::to_unexpected;
 use crate::types::{Post, Vote};
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct ReplyContext {
 	pub id: MaskedObjectId,
 }
@@ -33,7 +33,8 @@ pub struct Detail {
 	pub id: MaskedObjectId,
 	pub sequential_id: MaskedSequentialId,
 	pub reply_context: Option<ReplyContext>,
-	pub text: String,
+	pub body_text: String,
+	pub header_text: String,
 	pub created_at: String,
 	pub votes: Votes,
 }
@@ -47,7 +48,8 @@ pub enum ListQuery {
 
 #[derive(Deserialize)]
 pub struct CreateRequest {
-	pub text: String,
+	pub header_text: String,
+	pub body_text: String,
 }
 
 #[derive(Serialize)]
@@ -149,7 +151,8 @@ pub async fn daily_hottest(
 				sequential_id: masking_key
 					.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
 				reply_context: None,
-				text: post.text,
+				body_text: post.body_text,
+				header_text: post.header_text,
 				created_at: post
 					.created_at
 					.try_to_rfc3339_string()
@@ -215,7 +218,8 @@ pub async fn list(
 				sequential_id: masking_key
 					.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
 				reply_context: None,
-				text: post.text,
+				body_text: post.body_text,
+				header_text: post.header_text,
 				created_at: post
 					.created_at
 					.try_to_rfc3339_string()
@@ -248,12 +252,15 @@ pub async fn create(
 	user: AuthenticatedUser,
 	request: web::Json<CreateRequest>,
 ) -> ApiResult<Created, ()> {
-	if request.text.len() > conf::POST_MAX_SIZE {
+	if request.body_text.len() > conf::POST_BODY_MAX_SIZE
+		|| request.header_text.len() > conf::POST_HEADER_MAX_SIZE
+	{
 		return Err(Failure::BadRequest("oversized post text"));
 	}
 	let mut insert_doc = doc! {
 		"owner": &user.id,
-		"text": &request.text,
+		"header_text": &request.header_text,
+		"body_text": &request.body_text,
 		"votes_up": 0,
 		"votes_down": 0,
 		"absolute_score": 0,
