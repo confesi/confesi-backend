@@ -7,7 +7,7 @@ pub const UNUSED_SESSION_TTL: Duration = Duration::from_secs(3600 * 24 * 60);
 pub const SESSION_MIN_TIME_BETWEEN_REFRESH: Duration = Duration::from_secs(3600 * 24);
 
 /// The number of posts to return for each request to a post list.
-pub const POSTS_PAGE_SIZE: u16 = 5;
+pub const POSTS_PAGE_SIZE: u16 = 20;
 
 /// The maximum length of a post in UTF-8 bytes.
 pub const POST_HEADER_MAX_SIZE: usize = 150;

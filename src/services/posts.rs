@@ -32,7 +32,7 @@ pub struct Votes {
 pub struct Detail {
 	pub id: MaskedObjectId,
 	pub sequential_id: MaskedSequentialId,
-	pub reply_context: Option<ReplyContext>,
+	pub reply_context: Option<MaskedObjectId>,
 	pub genre: PostGenre,
 	pub body_text: String,
 	pub header_text: String,
@@ -49,6 +49,7 @@ pub enum ListQuery {
 
 #[derive(Deserialize)]
 pub struct CreateRequest {
+	pub reply_context: Option<ReplyContext>,
 	pub header_text: String,
 	pub body_text: String,
 	pub genre: PostGenre,
@@ -152,7 +153,9 @@ pub async fn daily_hottest(
 				id: masking_key.mask(&post.id),
 				sequential_id: masking_key
 					.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
-				reply_context: None,
+				reply_context: post
+					.reply_context
+					.map(|object_id| masking_key.mask(&object_id)),
 				genre: post.genre,
 				body_text: post.body_text,
 				header_text: post.header_text,
@@ -220,7 +223,9 @@ pub async fn list(
 				id: masking_key.mask(&post.id),
 				sequential_id: masking_key
 					.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
-				reply_context: None,
+				reply_context: post
+					.reply_context
+					.map(|object_id| masking_key.mask(&object_id)),
 				genre: post.genre,
 				body_text: post.body_text,
 				header_text: post.header_text,
@@ -259,13 +264,24 @@ pub async fn create(
 	if request.body_text.len() > conf::POST_BODY_MAX_SIZE
 		|| request.header_text.len() > conf::POST_HEADER_MAX_SIZE
 	{
-		return Err(Failure::BadRequest("oversized post text"));
+		return Err(Failure::BadRequest("oversized post header or body text"));
 	}
+
+	let reply_context_id = match &request.reply_context {
+		Some(masked_id) => Some(
+			masking_key
+				.unmask(&masked_id.id)
+				.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?,
+		),
+		None => None,
+	};
+
 	let mut insert_doc: Document;
 	match to_bson(&request.genre) {
 		Ok(genre) => {
 			insert_doc = doc! {
 				"owner": &user.id,
+				"reply_context": &reply_context_id,
 				"header_text": &request.header_text,
 				"body_text": &request.body_text,
 				"genre": genre,
