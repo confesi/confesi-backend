@@ -10,7 +10,7 @@ pub const SESSION_MIN_TIME_BETWEEN_REFRESH: Duration = Duration::from_secs(3600 
 pub const POSTS_PAGE_SIZE: u16 = 20;
 
 /// The maximum length of a post in UTF-8 bytes.
-pub const POST_HEADER_MAX_SIZE: usize = 150;
+pub const POST_HEADER_MAX_SIZE: usize = 120;
 
 /// The maximum length of a post in UTF-8 bytes.
 pub const POST_BODY_MAX_SIZE: usize = 1000;

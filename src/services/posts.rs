@@ -48,6 +48,7 @@ pub enum ListQuery {
 	Trending,
 }
 
+/// Fields that are sent up with a post in order to help create it.
 #[derive(Deserialize)]
 pub struct CreateRequest {
 	pub school_id: String,
