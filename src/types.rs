@@ -77,6 +77,7 @@ pub struct Post {
 	pub owner: ObjectId,
 	pub header_text: String,
 	pub body_text: String,
+	pub genre: PostGenre,
 	pub votes_up: i32,
 	pub votes_down: i32,
 	pub absolute_score: i32,
@@ -96,6 +97,18 @@ pub struct Vote {
 	pub post: ObjectId,
 	pub user: ObjectId,
 	pub value: i32,
+}
+
+/// The various genres a post can be.
+#[derive(Deserialize, Serialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum PostGenre {
+	General,
+	Relationships,
+	Classes,
+	Politics,
+	Wholesome,
+	HotTakes,
 }
 
 mod token {

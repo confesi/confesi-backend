@@ -3,7 +3,7 @@ use actix_web::{get, post, put};
 use chrono::{Duration, Timelike, Utc};
 use futures::TryStreamExt;
 use log::{debug, error, info};
-use mongodb::bson::{doc, Bson, DateTime, Document};
+use mongodb::bson::{doc, to_bson, Bson, DateTime, Document};
 use mongodb::error::{ErrorKind, WriteFailure};
 use mongodb::options::{FindOneOptions, FindOptions};
 use mongodb::{Client as MongoClient, Database};
@@ -15,7 +15,7 @@ use crate::auth::AuthenticatedUser;
 use crate::conf;
 use crate::masked_oid::{self, MaskedObjectId, MaskedSequentialId, MaskingKey};
 use crate::to_unexpected;
-use crate::types::{Post, Vote};
+use crate::types::{Post, PostGenre, Vote};
 
 #[derive(Serialize, Deserialize)]
 pub struct ReplyContext {
@@ -33,6 +33,7 @@ pub struct Detail {
 	pub id: MaskedObjectId,
 	pub sequential_id: MaskedSequentialId,
 	pub reply_context: Option<ReplyContext>,
+	pub genre: PostGenre,
 	pub body_text: String,
 	pub header_text: String,
 	pub created_at: String,
@@ -50,6 +51,7 @@ pub enum ListQuery {
 pub struct CreateRequest {
 	pub header_text: String,
 	pub body_text: String,
+	pub genre: PostGenre,
 }
 
 #[derive(Serialize)]
@@ -151,6 +153,7 @@ pub async fn daily_hottest(
 				sequential_id: masking_key
 					.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
 				reply_context: None,
+				genre: post.genre,
 				body_text: post.body_text,
 				header_text: post.header_text,
 				created_at: post
@@ -218,6 +221,7 @@ pub async fn list(
 				sequential_id: masking_key
 					.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
 				reply_context: None,
+				genre: post.genre,
 				body_text: post.body_text,
 				header_text: post.header_text,
 				created_at: post
@@ -257,16 +261,24 @@ pub async fn create(
 	{
 		return Err(Failure::BadRequest("oversized post text"));
 	}
-	let mut insert_doc = doc! {
-		"owner": &user.id,
-		"header_text": &request.header_text,
-		"body_text": &request.body_text,
-		"votes_up": 0,
-		"votes_down": 0,
-		"absolute_score": 0,
-		"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
-		"created_at": DateTime::now(),
-	};
+	let mut insert_doc: Document;
+	match to_bson(&request.genre) {
+		Ok(genre) => {
+			insert_doc = doc! {
+				"owner": &user.id,
+				"header_text": &request.header_text,
+				"body_text": &request.body_text,
+				"genre": genre,
+				"votes_up": 0,
+				"votes_down": 0,
+				"absolute_score": 0,
+				"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
+				"created_at": DateTime::now(),
+			};
+		}
+		Err(_) => return Err(Failure::Unexpected),
+	}
+
 	let mut attempt = 0;
 	let insertion = loop {
 		attempt += 1;
