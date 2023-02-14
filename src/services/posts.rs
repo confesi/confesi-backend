@@ -15,7 +15,7 @@ use crate::auth::AuthenticatedUser;
 use crate::conf;
 use crate::masked_oid::{self, MaskedObjectId, MaskedSequentialId, MaskingKey};
 use crate::to_unexpected;
-use crate::types::{Post, PostGenre, School, Vote};
+use crate::types::{Post, PostGenre, PosterFaculty, PosterYearOfStudy, School, Vote};
 
 #[derive(Serialize, Deserialize)]
 pub struct ReplyContext {
@@ -35,6 +35,8 @@ pub struct Detail {
 	pub reply_context: Option<MaskedObjectId>,
 	pub school_id: String,
 	pub genre: PostGenre,
+	pub year_of_study: Option<PosterYearOfStudy>,
+	pub faculty: Option<PosterFaculty>,
 	pub body_text: String,
 	pub header_text: String,
 	pub created_at: String,
@@ -56,6 +58,8 @@ pub struct CreateRequest {
 	pub header_text: String,
 	pub body_text: String,
 	pub genre: PostGenre,
+	pub year_of_study: Option<PosterYearOfStudy>,
+	pub faculty: Option<PosterFaculty>,
 	pub associated_with_user: bool,
 }
 
@@ -162,6 +166,8 @@ pub async fn daily_hottest(
 					.reply_context
 					.map(|object_id| masking_key.mask(&object_id)),
 				genre: post.genre,
+				year_of_study: post.year_of_study,
+				faculty: post.faculty,
 				body_text: post.body_text,
 				header_text: post.header_text,
 				created_at: post
@@ -233,6 +239,8 @@ pub async fn list(
 					.reply_context
 					.map(|object_id| masking_key.mask(&object_id)),
 				genre: post.genre,
+				year_of_study: post.year_of_study,
+				faculty: post.faculty,
 				body_text: post.body_text,
 				header_text: post.header_text,
 				created_at: post
@@ -289,25 +297,26 @@ pub async fn create(
 		.ok_or(Failure::BadRequest("invalid school id"))?;
 
 	let mut insert_doc: Document;
-	match to_bson(&request.genre) {
-		Ok(genre) => {
-			insert_doc = doc! {
-				"owner": &user.id,
-				"reply_context": &reply_context_id,
-				"header_text": &request.header_text,
-				"body_text": &request.body_text,
-				"school_id": &request.school_id,
-				"genre": genre,
-				"votes_up": 0,
-				"votes_down": 0,
-				"absolute_score": 0,
-				"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
-				"created_at": DateTime::now(),
-				"associated_with_user": request.associated_with_user,
-			};
-		}
-		Err(_) => return Err(Failure::Unexpected),
-	}
+	// Convert enums to [Bson] in order to store.
+	let genre = to_bson(&request.genre).map_err(|_| Failure::Unexpected)?;
+	let faculty = to_bson(&request.faculty).map_err(|_| Failure::Unexpected)?;
+	let year_of_study = to_bson(&request.year_of_study).map_err(|_| Failure::Unexpected)?;
+	insert_doc = doc! {
+		"owner": &user.id,
+		"reply_context": &reply_context_id,
+		"header_text": &request.header_text,
+		"body_text": &request.body_text,
+		"school_id": &request.school_id,
+		"genre": genre,
+		"year_of_study": year_of_study,
+		"faculty": faculty,
+		"votes_up": 0,
+		"votes_down": 0,
+		"absolute_score": 0,
+		"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
+		"created_at": DateTime::now(),
+		"associated_with_user": request.associated_with_user,
+	};
 
 	let mut attempt = 0;
 	let insertion = loop {

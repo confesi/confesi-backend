@@ -81,6 +81,10 @@ pub struct Post {
 	pub body_text: String,
 	// Genre of the post.
 	pub genre: PostGenre,
+	// Year of study of the poster.
+	pub year_of_study: Option<PosterYearOfStudy>,
+	// Fcaulty of the poster.
+	pub faculty: Option<PosterFaculty>,
 	pub votes_up: i32,
 	pub votes_down: i32,
 	pub absolute_score: i32,
@@ -115,6 +119,36 @@ pub enum PostGenre {
 	Politics,
 	Wholesome,
 	HotTakes,
+}
+
+/// The various years of study the creator of a post can be.
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum PosterYearOfStudy {
+	One,
+	Two,
+	Three,
+	Four,
+	Five,
+	Graduate,
+	PhD,
+	Alumni,
+}
+
+/// The various faculties the creator of a post can be associated with.
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum PosterFaculty {
+	Business,
+	Medicine,
+	SocialScience,
+	History,
+	Engineering,
+	ComputerScience,
+	Psychology,
+	Communication,
+	Arts,
+	Education,
 }
 
 mod token {
