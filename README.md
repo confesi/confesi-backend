@@ -31,11 +31,8 @@ Run `docker compose down --remove-orphans --volumes` to remove all data, then st
 
 Viewing the raw data can be helpful in development.
 
-1. Run `docker ps` to see all containers.
-2. Copy the `CONTAINER ID` from the listed `mongo:5` container.
-3. Run `docker exec -it NAME_OF_CONTAINER bash` to open a bash shell inside the mongo container.
-4. Run `mongosh` to start the MongoDB CLI tool.
-5. You can now run commands like `show dbs`, `use db`, `db.posts.find()`, etc.
+1. Run `docker compose exec mongo mongosh db` to open a MongoDB CLI inside the mongo container.
+2. You can now run commands like `db.posts.find()`, etc.
 
 
 ### API documentation
