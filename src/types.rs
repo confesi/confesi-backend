@@ -12,6 +12,7 @@ use std::fmt;
 use std::str::{self, FromStr};
 
 use crate::conf;
+use crate::services::posts::ReplyContext;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 #[serde(into = "String", try_from = "String")]
@@ -72,8 +73,10 @@ pub struct Post {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
 	pub sequential_id: i32,
+	pub reply_context: Option<ReplyContext>,
 	pub owner: ObjectId,
-	pub text: String,
+	pub header_text: String,
+	pub body_text: String,
 	pub votes_up: i32,
 	pub votes_down: i32,
 	pub absolute_score: i32,
