@@ -258,6 +258,50 @@ paths:
                   BadRequest:
                     type: string
 
+  /posts/{post_id}/:
+    get:
+      summary: Get a singular post via masked post ID.
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            id:
+              type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - sequential_id
+                  - reply_context
+                  - text
+                  - created_at
+                  - votes
+                properties:
+                  id:
+                    $ref: '#/components/schemas/masked-id'
+                  sequential_id:
+                    $ref: '#/components/schemas/masked-sequential-id'
+                  reply_context:
+                    anyOf:
+                      - type: 'null'
+                      - type: object
+                        required:
+                          - id
+                        properties:
+                          id:
+                            $ref: '#/components/schemas/masked-id'
+                  text:
+                    type: string
+                  created_at:
+                    type: string
+                  votes:
+                    $ref: '#/components/schemas/votes'
+
   /posts/:
     get:
       summary: List posts
