@@ -79,6 +79,7 @@ pub struct Detail {
  	pub body_text: String,
  	pub header_text: String,
 	pub created_at: String,
+	pub tags: Vec<&'static str>,
 	pub votes: Votes,
 }
 
@@ -106,6 +107,32 @@ pub struct CreateRequest {
 #[derive(Serialize)]
 pub struct Created {
 	pub id: MaskedObjectId,
+}
+
+/// Auto-apply tags based on certain parameters a [`Post`] struct contains.
+fn add_tags(post: &Post) -> Vec<&'static str> {
+	let mut tags: Vec<&str> = vec![];
+	if post.votes_up.abs() + post.votes_down.abs() >= 100
+		&& (0.8..=1.2).contains(&(post.votes_up as f32 / post.votes_down as f32))
+	{
+		tags.push("controversial");
+	}
+	if post.votes_up.abs() + post.votes_down.abs() >= 100
+		&& (post.votes_down as f32 / post.votes_up as f32) < 0.05
+	{
+		tags.push("loved");
+	}
+	if let Some(PosterFaculty::ComputerScience) = post.faculty {
+		if post.votes_up > 5000 {
+			// Example of a more rare and obscure tag.
+			tags.push("cs kid hacking")
+		}
+	}
+	// TODO: Remove later. This tag is for demo purposes only.
+	if post.absolute_score >= 1 {
+		tags.push("demo tag, abs_score >= 1");
+	}
+	tags
 }
 
 #[get("/posts/")]
@@ -151,6 +178,7 @@ pub async fn list(
 			.await
 			.map_err(to_unexpected!("Getting posts cursor failed"))?
 			.map_ok(|post| Ok(Detail {
+				tags: add_tags(&post),
 				school_id: post.school_id,
 				id: masking_key.mask(&post.id),
 				sequential_id: masking_key.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
