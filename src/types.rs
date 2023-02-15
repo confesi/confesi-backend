@@ -75,18 +75,75 @@ pub struct Session {
 	pub last_used: DateTime,
 }
 
-#[derive(Deserialize)]
-pub struct Post {
-	#[serde(rename = "_id")]
-	pub id: ObjectId,
-	pub sequential_id: i32,
-	pub owner: ObjectId,
-	pub text: String,
-	pub votes_up: i32,
-	pub votes_down: i32,
-	pub absolute_score: i32,
-	pub trending_score: f64,
-}
+#[derive(Deserialize, Debug)]
+ pub struct Post {
+ 	#[serde(rename = "_id")]
+ 	pub id: ObjectId,
+ 	pub sequential_id: i32,
+ 	// If this post is replying (meaning it's a "child") to another post.
+ 	pub reply_context: Option<ObjectId>,
+ 	pub owner: ObjectId,
+ 	// Unique school identifier.
+ 	pub school_id: String,
+ 	pub header_text: String,
+ 	pub body_text: String,
+ 	// Genre of the post.
+ 	pub genre: PostGenre,
+ 	// Year of study of the poster.
+ 	pub year_of_study: Option<PosterYearOfStudy>,
+ 	// Fcaulty of the poster.
+ 	pub faculty: Option<PosterFaculty>,
+ 	pub votes_up: i32,
+ 	pub votes_down: i32,
+ 	pub absolute_score: i32,
+ 	pub trending_score: f64,
+ 	pub created_at: DateTime,
+ 	// If the user wants this post associated with them privately (aka, do they want it
+ 	// linked to their private profile so they can find it easily), or completely disassociated.
+ 	pub associated_with_user: bool,
+ }
+
+ /// The various genres a post can be.
+ #[derive(Deserialize, Serialize, Clone, Debug)]
+ #[serde(rename_all = "snake_case")]
+ pub enum PostGenre {
+ 	General,
+ 	Relationships,
+ 	Classes,
+ 	Politics,
+ 	Wholesome,
+ 	HotTakes,
+ }
+
+ /// The various years of study the creator of a post can be.
+ #[derive(Deserialize, Serialize, Clone, Debug)]
+ #[serde(rename_all = "snake_case")]
+ pub enum PosterYearOfStudy {
+ 	One,
+ 	Two,
+ 	Three,
+ 	Four,
+ 	Five,
+ 	Graduate,
+ 	PhD,
+ 	Alumni,
+ }
+
+ /// The various faculties the creator of a post can be associated with.
+ #[derive(Deserialize, Serialize, Clone, Debug)]
+ #[serde(rename_all = "snake_case")]
+ pub enum PosterFaculty {
+ 	Business,
+ 	Medicine,
+ 	SocialScience,
+ 	History,
+ 	Engineering,
+ 	ComputerScience,
+ 	Psychology,
+ 	Communication,
+ 	Arts,
+ 	Education,
+ }
 
 #[derive(Deserialize)]
 pub struct School {

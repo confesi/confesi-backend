@@ -22,6 +22,7 @@ use mongodb::bson::{
 	DateTime,
 	Document,
 	doc,
+	to_bson,
 };
 use mongodb::error::{
 	ErrorKind,
@@ -52,9 +53,10 @@ use crate::masked_oid::{
 use crate::types::{
 	Post,
 	Vote,
+	PosterYearOfStudy, PosterFaculty, PostGenre, School
 };
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct ReplyContext {
 	pub id: MaskedObjectId,
 }
@@ -69,8 +71,13 @@ pub struct Votes {
 pub struct Detail {
 	pub id: MaskedObjectId,
 	pub sequential_id: MaskedSequentialId,
-	pub reply_context: Option<ReplyContext>,
-	pub text: String,
+	pub reply_context: Option<MaskedObjectId>,
+ 	pub school_id: String,
+ 	pub genre: PostGenre,
+ 	pub year_of_study: Option<PosterYearOfStudy>,
+ 	pub faculty: Option<PosterFaculty>,
+ 	pub body_text: String,
+ 	pub header_text: String,
 	pub created_at: String,
 	pub votes: Votes,
 }
@@ -86,7 +93,14 @@ pub enum ListQuery {
 
 #[derive(Deserialize)]
 pub struct CreateRequest {
-	pub text: String,
+	pub school_id: String,
+ 	pub reply_context: Option<ReplyContext>,
+ 	pub header_text: String,
+ 	pub body_text: String,
+ 	pub genre: PostGenre,
+ 	pub year_of_study: Option<PosterYearOfStudy>,
+ 	pub faculty: Option<PosterFaculty>,
+ 	pub associated_with_user: bool,
 }
 
 #[derive(Serialize)]
@@ -137,15 +151,21 @@ pub async fn list(
 			.await
 			.map_err(to_unexpected!("Getting posts cursor failed"))?
 			.map_ok(|post| Ok(Detail {
+				school_id: post.school_id,
 				id: masking_key.mask(&post.id),
 				sequential_id: masking_key.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
-				reply_context: None,
-				text: post.text,
-				created_at: (
-					post.id.timestamp()
-						.try_to_rfc3339_string()
-						.map_err(to_unexpected!("Formatting post timestamp failed"))?
-				),
+				reply_context: post
+ 					.reply_context
+ 					.map(|object_id| masking_key.mask(&object_id)),
+					 genre: post.genre,
+					 year_of_study: post.year_of_study,
+					 faculty: post.faculty,
+					 body_text: post.body_text,
+					 header_text: post.header_text,
+					 created_at: post
+						 .created_at
+						 .try_to_rfc3339_string()
+						 .map_err(to_unexpected!("Formatting post timestamp failed"))?,
 				votes: Votes {
 					up: u32::try_from(post.votes_up).unwrap(),
 					down: u32::try_from(post.votes_down).unwrap(),
@@ -172,17 +192,48 @@ pub async fn create(
 	user: AuthenticatedUser,
 	request: web::Json<CreateRequest>,
 ) -> ApiResult<Created, ()> {
-	if request.text.len() > conf::POST_MAX_SIZE {
-		return Err(Failure::BadRequest("oversized post text"));
+	// Preliminary checks to check if post content is valid.
+	if request.body_text.len() > conf::POST_BODY_MAX_SIZE
+	|| request.header_text.len() > conf::POST_HEADER_MAX_SIZE
+	{
+	return Err(Failure::BadRequest("oversized post header or body text"));
 	}
 
-	let mut insert_doc = doc! {
+	let reply_context_id = match &request.reply_context {
+		Some(masked_id) => Some(
+			masking_key
+				.unmask(&masked_id.id)
+				.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?,
+		),
+		None => None,
+	};
+	// Secondary check to see if their [`school_id`] is valid.
+	db.collection::<School>("schools")
+		.find_one(doc! {"_id": {"$eq": request.school_id.clone()}}, None)
+		.await
+		.map_err(to_unexpected!("validating school's existence failed"))?
+		.ok_or(Failure::BadRequest("invalid school id"))?;
+
+	let mut insert_doc: Document;
+	// Convert enums to [Bson] in order to store.
+	let genre = to_bson(&request.genre).map_err(|_| Failure::Unexpected)?;
+	let faculty = to_bson(&request.faculty).map_err(|_| Failure::Unexpected)?;
+	let year_of_study = to_bson(&request.year_of_study).map_err(|_| Failure::Unexpected)?;
+	insert_doc = doc! {
 		"owner": &user.id,
-		"text": &request.text,
+		"reply_context": &reply_context_id,
+		"header_text": &request.header_text,
+		"body_text": &request.body_text,
+		"school_id": &request.school_id,
+		"genre": genre,
+		"year_of_study": year_of_study,
+		"faculty": faculty,
 		"votes_up": 0,
 		"votes_down": 0,
 		"absolute_score": 0,
 		"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
+		"created_at": DateTime::now(),
+		"associated_with_user": request.associated_with_user,
 	};
 	let mut attempt = 0;
 	let insertion = loop {
