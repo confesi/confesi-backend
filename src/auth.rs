@@ -16,7 +16,6 @@ use actix_web::http::StatusCode;
 use actix_web::http::header;
 use actix_web::web;
 use log::{
-	debug,
 	error,
 	warn,
 };

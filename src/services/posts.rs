@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use chrono::{Duration, Timelike, Utc};
 
 use actix_web::{
 	get,
@@ -19,6 +20,7 @@ use mongodb::{
 	Database,
 };
 use mongodb::bson::{
+	Bson,
 	DateTime,
 	Document,
 	doc,
@@ -142,7 +144,7 @@ pub async fn list(
 				reply_context: None,
 				text: post.text,
 				created_at: (
-					post.id.timestamp()
+					post.created_at
 						.try_to_rfc3339_string()
 						.map_err(to_unexpected!("Formatting post timestamp failed"))?
 				),
@@ -165,6 +167,100 @@ fn get_trending_score_time(date_time: &DateTime) -> f64 {
 	f64::from(u32::try_from(date_time.timestamp_millis() / 1000 - conf::TRENDING_EPOCH).unwrap()) / conf::TRENDING_DECAY
 }
 
+#[derive(Deserialize)]
+#[serde(tag = "sort", rename_all = "kebab-case")]
+pub struct HottestQuery {
+	date: String,
+}
+
+/// Returns the hottest posts created from a specific date.
+///
+/// Example request for the hottest from February 8, 2023: `http://localhost:3000/posts/hottest/?date=1675852775000`.
+#[get("/posts/hottest/")]
+pub async fn daily_hottest(
+	db: web::Data<Database>,
+	masking_key: web::Data<&'static MaskingKey>,
+	query: web::Query<HottestQuery>,
+) -> ApiResult<Box<[Detail]>, ()> {
+	// What qualifies a post as "hottest" can change in the future. Currently sorting by a post's "absolute score".
+	let sort: Document = doc! {"absolute_score": -1};
+	let find_query: Document;
+	let today_at_midnight: chrono::DateTime<Utc> = Utc::now()
+		.with_hour(0)
+		.unwrap()
+		.with_minute(0)
+		.unwrap()
+		.with_second(0)
+		.unwrap();
+	if let Ok(ms_since_date) = (&*query.date).parse::<i64>() {
+		if ms_since_date >= today_at_midnight.timestamp_millis() {
+			return Err(Failure::BadRequest(
+				"datetime must be from yesterday or older",
+			));
+		}
+		let lower_bound = chrono::DateTime::<Utc>::from_utc(
+			match chrono::NaiveDateTime::from_timestamp_opt(ms_since_date / 1000, 0) {
+				Some(date) => date
+					.with_hour(0)
+					.unwrap()
+					.with_minute(0)
+					.unwrap()
+					.with_second(0)
+					.unwrap(),
+				None => return Err(Failure::BadRequest("invalid datetime passed")),
+			},
+			Utc,
+		);
+		let upper_bound = lower_bound + Duration::days(1);
+		// Filter by date range, where [`lower_bound`] is midnight of the day you
+		// requested, and [`upper_bound`] is 24 hours ahead of [`lower_bound`].
+		find_query = doc! {
+			"$and": [
+				{"created_at": {"$gte": Bson::DateTime(DateTime::from_millis(lower_bound.timestamp_millis()))}},
+				{"created_at": {"$lt": Bson::DateTime(DateTime::from_millis(upper_bound.timestamp_millis()))}},
+			]
+		};
+	} else {
+		return Err(Failure::BadRequest("invalid datetime passed"));
+	}
+
+	let posts = db
+		.collection::<Post>("posts")
+		.find(
+			find_query,
+			FindOptions::builder()
+				.sort(sort)
+				.limit(i64::from(conf::HOTTEST_POSTS_PER_PAGE))
+				.build(),
+		)
+		.await
+		.map_err(to_unexpected!("Getting posts cursor failed"))?
+		.map_ok(|post| {
+			Ok(Detail {
+				id: masking_key.mask(&post.id),
+				sequential_id: masking_key
+					.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
+				reply_context: None,
+				text: post.text,
+				created_at: (post
+					.created_at
+					.try_to_rfc3339_string()
+					.map_err(to_unexpected!("Formatting post timestamp failed"))?),
+				votes: Votes {
+					up: u32::try_from(post.votes_up).unwrap(),
+					down: u32::try_from(post.votes_down).unwrap(),
+				},
+			})
+		})
+		.try_collect::<Vec<Result<Detail, Failure<()>>>>()
+		.await
+		.map_err(to_unexpected!("Getting posts failed"))?
+		.into_iter()
+		.collect::<Result<Vec<Detail>, Failure<()>>>()?;
+
+	success(posts.into())
+}
+
 #[post("/posts/")]
 pub async fn create(
 	db: web::Data<Database>,
@@ -183,6 +279,7 @@ pub async fn create(
 		"votes_down": 0,
 		"absolute_score": 0,
 		"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
+		"created_at": DateTime::now(),
 	};
 	let mut attempt = 0;
 	let insertion = loop {
