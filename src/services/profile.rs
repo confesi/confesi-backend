@@ -3,27 +3,45 @@ use mongodb::{bson::{
     to_bson, Document,
 }, options::{FindOneAndUpdateOptions, ReturnDocument}};
 use serde::{Deserialize, Serialize};
-use actix_web::{ patch, web };
+use actix_web::{ patch, web, get };
 use mongodb::Database;
 use crate::{auth::{
 	AuthenticatedUser,
 }, api_types::{ApiResult, Failure, success}, types::{User, PosterYearOfStudy, PosterFaculty}};
 
 #[derive(Deserialize, Serialize)]
-pub struct UpdateProfileRequest {
+pub struct ProfileData {
 	// Year of study of the poster.
 	pub year_of_study: Option<PosterYearOfStudy>,
 	// Fcaulty of the poster.
 	pub faculty: Option<PosterFaculty>,
 }
 
+/// Fetches user profile information.
+#[get("/users/profile/")]
+pub async fn get_profile(
+	db: web::Data<Database>,
+	user: AuthenticatedUser,
+) -> ApiResult<ProfileData, ()> {
+	let user = db.collection::<User>("users").find_one(doc! {"_id": {"$eq": user.id}}, None).await;
+	// Finds and returns the user profile data.
+	// Throws 400 if no account matches id, and 500 upon unknown find error.
+	match user {
+		Ok(possible_user) => match possible_user {
+			Some(user) => return success(ProfileData {year_of_study: user.year_of_study, faculty: user.faculty}),
+			None => return Err(Failure::BadRequest("no account matches this id")),
+		},
+		Err(_) => return Err(Failure::Unexpected)
+	};
+}
+
 /// Updates user profile information.
 #[patch("/users/profile/")]
 pub async fn update_profile(
 	db: web::Data<Database>,
-	update_data: web::Json<UpdateProfileRequest>,
+	update_data: web::Json<ProfileData>,
 	user: AuthenticatedUser,
-) -> ApiResult<UpdateProfileRequest, ()> {
+) -> ApiResult<ProfileData, ()> {
 	// Converts incoming enum variants to valid Bson.
 	let faculty_bson = to_bson(&update_data.faculty).map_err(|_| Failure::Unexpected)?;
 	let year_of_study_bson = to_bson(&update_data.year_of_study).map_err(|_| Failure::Unexpected)?;
@@ -52,7 +70,7 @@ pub async fn update_profile(
 	).await;
 	match user {
 		Ok(possible_user) => match possible_user {
-			Some(user) => return success(UpdateProfileRequest {year_of_study: user.year_of_study, faculty: user.faculty}),
+			Some(user) => return success(ProfileData {year_of_study: user.year_of_study, faculty: user.faculty}),
 			None => return Err(Failure::BadRequest("no account matches this id")),
 		},
 		Err(_) => return Err(Failure::Unexpected)

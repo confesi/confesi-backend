@@ -233,6 +233,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::posts::list)
 			.service(services::posts::vote)
 			.service(services::profile::update_profile)
+			.service(services::profile::get_profile)
 	})
 		.bind(("0.0.0.0", 3000))?
 		.run()
