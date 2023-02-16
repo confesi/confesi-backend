@@ -56,6 +56,9 @@ pub async fn get_profile(
 /// 
 /// If a field is null or undefined it is set as [`<ENUM_NAME>::Hidden`] to indicate
 /// the user desires it to be kept private.
+/// 
+/// Not a PATCH request because couldn't do this https://stackoverflow.com/questions/44331037/how-can-i-distinguish-between-a-deserialized-field-that-is-missing-and-one-that
+/// because Actix-web's [`web::Json`] inferes both undefined and null as None, making PATCH requests difficult.
 #[put("/users/profile/")]
 pub async fn update_profile(
 	db: web::Data<Database>,
