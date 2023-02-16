@@ -11,6 +11,7 @@ use mongodb::Database;
 use mongodb::bson::{
 	DateTime,
 	doc,
+	to_bson,
 };
 use mongodb::error::{
 	ErrorKind,
@@ -39,7 +40,7 @@ use crate::types::{
 	Session,
 	SessionToken,
 	User,
-	Username,
+	Username, PosterYearOfStudy, PosterFaculty,
 };
 
 #[derive(Deserialize)]
@@ -51,6 +52,10 @@ pub struct Credentials {
 #[serde(deny_unknown_fields)]
 pub struct NewUser {
 	username: Username,
+	// Year of study of the poster.
+	pub year_of_study: Option<PosterYearOfStudy>,
+	// Fcaulty of the poster.
+	pub faculty: Option<PosterFaculty>,
 }
 
 #[serde_as]
@@ -143,6 +148,10 @@ pub async fn logout_all(db: web::Data<Database>, user: AuthenticatedUser) -> Api
 #[post("/users/")]
 pub async fn register(db: web::Data<Database>, _guest: Guest, new_user: web::Json<NewUser>) -> ApiResult<(), RegistrationError> {
 	let users = db.collection::<NewUser>("users");
+
+	let faculty = to_bson(&new_user.faculty).map_err(|_| Failure::Unexpected)?;
+	let year_of_study = to_bson(&new_user.year_of_study).map_err(|_| Failure::Unexpected)?;
+
 	let op = users.insert_one(&*new_user, None);
 
 	match op.await {
