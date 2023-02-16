@@ -39,7 +39,7 @@ use crate::types::{
 	Session,
 	SessionToken,
 	User,
-	Username, PosterYearOfStudy, PosterFaculty,
+	Username, PosterYearOfStudy, PosterFaculty, School,
 };
 
 #[derive(Deserialize)]
@@ -53,8 +53,10 @@ pub struct NewUser {
 	username: Username,
 	// Year of study of the poster.
 	pub year_of_study: Option<PosterYearOfStudy>,
-	// Fcaulty of the poster.
+	// Faculty of the poster.
 	pub faculty: Option<PosterFaculty>,
+	// School of the poster.
+	pub school_id: String,
 }
 
 #[serde_as]
@@ -146,6 +148,14 @@ pub async fn logout_all(db: web::Data<Database>, user: AuthenticatedUser) -> Api
 
 #[post("/users/")]
 pub async fn register(db: web::Data<Database>, _guest: Guest, new_user: web::Json<NewUser>) -> ApiResult<(), RegistrationError> {
+
+	// Check to see if their [`school_id`] is valid.
+	db.collection::<School>("schools")
+		.find_one(doc! {"_id": {"$eq": new_user.school_id.clone()}}, None)
+		.await
+		.map_err(to_unexpected!("validating school's existence failed"))?
+		.ok_or(Failure::BadRequest("invalid school id"))?;
+
 	let users = db.collection::<NewUser>("users");
 
 	let op = users.insert_one(&*new_user, None);
