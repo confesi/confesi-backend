@@ -33,3 +33,9 @@ pub const PERMITTED_ORIGINS: &[&str] = &[
 pub const TRENDING_EPOCH: i64 = 1640995200;  // 2022-01-01T00:00:00Z
 
 pub const TRENDING_DECAY: f64 = 103616.32918473207;  // 45000 ln 10
+
+/// The maximum length of the header for feedback in UTF-8 bytes.
+pub const FEEDBACK_HEADER_MAX_SIZE: usize = 200;
+
+/// The maximum length of the body for feedback in UTF-8 bytes.
+pub const FEEDBACK_BODY_MAX_SIZE: usize = 2000;

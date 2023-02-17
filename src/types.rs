@@ -102,6 +102,12 @@ pub struct Vote {
 	pub value: i32,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Feedback {
+	pub header_text: String,
+	pub body_text: String,
+}
+
 mod token {
 	use super::*;
 
