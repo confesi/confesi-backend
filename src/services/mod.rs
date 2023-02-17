@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod posts;
+pub mod feedback;
 
 use actix_web::{
 	HttpRequest,

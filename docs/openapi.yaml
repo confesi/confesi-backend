@@ -189,6 +189,44 @@ paths:
         '500':
           $ref: '#/components/responses/unexpected'
 
+  /feedback/:
+    post:
+      summary: Allows the user to send feedback
+      requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - header_text
+                  - body_text
+                properties:
+                  header_text:
+                    type: string
+                  body_text:
+                    type: string
+      responses:
+        '200':
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/success'
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                    - error
+                  properties:
+                    error:
+                      type: string
+                      example: BadRequest
+        '500':
+          $ref: '#/components/responses/unexpected'
+
+
   /posts/:
     get:
       summary: List posts
