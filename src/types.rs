@@ -102,6 +102,14 @@ pub struct Vote {
 	pub value: i32,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Comment {
+	pub post_id: ObjectId,
+	pub parent_comment_id: Option<ObjectId>,
+	pub user_id: ObjectId,
+    pub text: String
+}
+
 mod token {
 	use super::*;
 
