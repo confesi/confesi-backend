@@ -1,37 +1,22 @@
-use std::convert::TryFrom;
-use actix_web::guard::fn_guard;
-use chrono;
 use actix_web::{
 	get,
 	post,
-	put,
 };
-use mongodb::bson::oid::ObjectId;
 use mongodb::bson::{DateTime};
 use actix_web::web;
 use futures::{
 	TryStreamExt,
 };
 use log::{
-	debug,
-	info,
 	error,
 };
+use mongodb::options::FindOptions;
 use mongodb::{
-	Client as MongoClient,
 	Database,
 };
 use mongodb::bson::{
 	Document,
 	doc,
-};
-use mongodb::error::{
-	ErrorKind,
-	WriteFailure,
-};
-use mongodb::options::{
-	FindOptions,
-	FindOneOptions,
 };
 use serde::{Deserialize, Serialize};
 
@@ -42,18 +27,16 @@ use crate::auth::AuthenticatedUser;
 use crate::api_types::{
 	ApiResult,
 	Failure,
-	success, ApiError,
+	success,
 };
 use crate::conf;
 use crate::masked_oid::{
 	self,
 	MaskingKey,
 	MaskedObjectId,
-	MaskedSequentialId,
 };
 use crate::types::{
-	Post,
-	Vote, Comment,
+	Comment,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -63,41 +46,31 @@ pub struct CreateComment {
     pub text: String
 }
 
-/// The various ways a user can sort comments.
-#[derive(Deserialize, Serialize, Clone, Debug)]
-#[serde(rename_all = "snake_case")]
-pub enum CommentSort {
-   Best { last_seen_absolute_score: i32 }, 
-   Controversial { last_seen_absolute_score: i32 },
-   Recent { last_seen_date: DateTime },
-   MostLiked { last_seen_votes_up: i32 },
-   MostDisliked { last_seen_votes_down: i32 },
-}
-
 #[derive(Deserialize, Debug)]
 pub struct CommentQuery {
-    pub sort: CommentSort,
-    pub last_seen_id: Option<ObjectId>, // TODO: make MaskedObjectId
+    pub last_seen_absolute_score: Option<i32>,
+    pub last_seen_id: Option<MaskedObjectId>,
+    pub post_id: MaskedObjectId,
 }
 
-// TODO: create a comment detail? that has masks?
-// pub struct CommentDetail {
-//     pub 
-// }
+#[derive(Serialize)]
+pub struct CommentDetail {
+    pub id: MaskedObjectId,
+    pub text: String,
+    pub absolute_score: i32,
+}
 
+// TODO: Add sorts for: recents (time-based), liked (highest absolute), hated (lowest absolute), controversial (closest to 0 absolute). 
 #[get("/comments/")]
 async fn get_comments(
+    db: web::Data<Database>,
     query: web::Query<CommentQuery>,
-) -> ApiResult<(), ()> {
+    masking_key: web::Data<&'static MaskingKey>,
+) -> ApiResult<Box<[CommentDetail]>, ()> {
     let mut find_query = Document::new();
-	let sort: Document;
-
-    match &query.sort {
-        CommentSort::Best { last_seen_absolute_score } => sort = doc! {"absolute_score": -1},
-        CommentSort::Controversial { last_seen_absolute_score } => sort = doc! { "absolute_score": { "$subtract": [0, "$absolute_score"] } },
-        CommentSort::Recent { last_seen_date } => sort = doc! {"created_at": -1},
-        CommentSort::MostLiked { last_seen_votes_up } => sort = doc! {"votes_up": -1},
-        CommentSort::MostDisliked { last_seen_votes_down } => sort = doc! {"votes_down": -1},
+	let sort = doc! {
+        "absolute_score": -1,
+        "_id": -1,
     };
 
     let mut condition_1 = Document::new();
@@ -105,26 +78,55 @@ async fn get_comments(
 
     match &query.last_seen_id {
         None => (),
-        Some(post_id) => {
-            condition_1.insert("_id", doc!{"$lt": post_id});
-            condition_1.insert("_id", doc!{"$ne": post_id});
+        Some(comment_id) => {
+            let comment_id = masking_key.unmask(&*&comment_id)
+		        .map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
+            condition_1.insert("_id", doc!{"$gt": comment_id});
+            condition_2.insert("_id", doc!{"$ne": comment_id});
         },
     };
+
+    match &query.last_seen_absolute_score {
+        None => (),
+        Some(votes_up) => {
+            condition_1.insert("votes_up", doc! {"$lte": votes_up});
+            condition_2.insert("votes_up", doc! {"$lt": votes_up});
+        }
+    }
 
     let combined_query = doc!{
         "$or": [ condition_1, condition_2 ]
     };
 
+    let parent_post = masking_key.unmask(&*&query.post_id)
+		        .map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
     find_query.insert("$and", vec![
         combined_query,
+        doc! {"post_id": {"$eq": parent_post}},
         doc! {"parent_comment_id": { "$eq": null }}
     ]);
 
-    println!("SORT: {}, QUERY: {}", sort, find_query);
+    let comments =
+		db.collection::<Comment>("comments")
+			.find(
+				find_query,
+				FindOptions::builder()
+					.sort(sort)
+					.limit(i64::from(conf::COMMENTS_PAGE_SIZE))
+					.build()
+			)
+			.await
+			.map_err(to_unexpected!("Getting comments cursor failed"))?
+			.map_ok(|post| Ok(
+                CommentDetail { id: masking_key.mask(&post.comment_id), text: post.text, absolute_score: post.absolute_score }
+            ))
+			.try_collect::<Vec<Result<CommentDetail, Failure<()>>>>()
+			.await
+			.map_err(to_unexpected!("Getting comments failed"))?
+			.into_iter()
+			.collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
 
-    // masking_key.unmask(&post_id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?
-
-    success(())
+	success(comments.into())
 } 
 
 #[post("/comments/")]
@@ -137,7 +139,6 @@ async fn create_comment(
     if comment.text.len() > conf::COMMENT_MAX_SIZE {
         return Err(Failure::BadRequest("oversized comment text"))
     }
-    // TODO: check comment length + validation
     // TODO: can you pass it masked id from a different collection?
     let post_id = masking_key.unmask(&*&comment.post_id)
 		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;

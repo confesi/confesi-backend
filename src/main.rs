@@ -121,13 +121,25 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 			None,
 		),
 
+		// TODO: Too many indicies (4)? They would be useful for sorts.
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"created_at": -1})
+				.build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"absolute_score": -1})
+				.build(),
+			None,
+		),
 		comments.create_index(
 			IndexModel::builder()
 				.keys(doc! {"post_id": -1})
 				.build(),
 			None,
 		),
-
 		comments.create_index(
 			IndexModel::builder()
 				.keys(doc! {"parent_comment_id": -1})

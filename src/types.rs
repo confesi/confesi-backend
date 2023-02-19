@@ -104,10 +104,12 @@ pub struct Vote {
 
 #[derive(Serialize, Deserialize)]
 pub struct Comment {
+	#[serde(rename = "_id")]
+	pub comment_id: ObjectId,
 	pub post_id: ObjectId,
 	pub parent_comment_id: Option<ObjectId>,
 	pub user_id: ObjectId,
-	pub created_at: String,
+	pub created_at: DateTime,
     pub text: String,
 	pub votes_up: i32,
 	pub votes_down: i32,
