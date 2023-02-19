@@ -43,6 +43,7 @@ use mongodb::options::{
 	ReadConcernLevel,
 	UpdateOptions,
 };
+use types::Comment;
 
 use crate::masked_oid::MaskingKey;
 use crate::middleware::HostCheckWrap;
@@ -62,6 +63,7 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 	let sessions = db.collection::<Session>("sessions");
 	let posts = db.collection::<Post>("posts");
 	let votes = db.collection::<Vote>("votes");
+	let comments = db.collection::<Comment>("comments");
 
 	try_join!(
 		users.create_index(
@@ -115,6 +117,20 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 		posts.create_index(
 			IndexModel::builder()
 				.keys(doc! {"trending_score": -1})
+				.build(),
+			None,
+		),
+
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"post_id": -1})
+				.build(),
+			None,
+		),
+
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"parent_comment_id": -1})
 				.build(),
 			None,
 		),
@@ -233,6 +249,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::posts::list)
 			.service(services::posts::vote)
 			.service(services::comments::create_comment)
+			.service(services::comments::get_comments)
 	})
 		.bind(("0.0.0.0", 3000))?
 		.run()

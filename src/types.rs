@@ -107,7 +107,11 @@ pub struct Comment {
 	pub post_id: ObjectId,
 	pub parent_comment_id: Option<ObjectId>,
 	pub user_id: ObjectId,
-    pub text: String
+	pub created_at: String,
+    pub text: String,
+	pub votes_up: i32,
+	pub votes_down: i32,
+	pub absolute_score: i32,
 }
 
 mod token {
