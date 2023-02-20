@@ -1,7 +1,7 @@
 use mongodb::{bson::{
 	doc,
     to_bson, Document,
-}, options::{FindOneAndUpdateOptions, ReturnDocument}};
+}};
 use log::{
 	error,
 };
@@ -88,16 +88,13 @@ pub async fn update_profile(
 		update_doc.insert("school_id", school_id);
 	}
 
-	// Return the document AFTER it has been updated, to reflect the changes.
-	let options = FindOneAndUpdateOptions::builder().return_document(ReturnDocument::After).build();
-
 	// Finds, updates, and returns a success-200 response.
 	// Throws 400 if no account matches id, and 500 upon unknown update error.
 	let user = db.collection::<User>("users")
 		.find_one_and_update(
 		doc! {"_id": {"$eq": user.id}},
 		doc! {"$set": update_doc},
-		Some(options)
+		None,
 	).await;
 	match user {
 		Ok(possible_user) => match possible_user {
