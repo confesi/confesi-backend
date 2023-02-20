@@ -66,9 +66,9 @@ pub struct User {
 	pub id: ObjectId,
 	pub username: Username,
 	// Year of study of the poster.
-	pub year_of_study: Option<PosterYearOfStudy>,
+	pub year_of_study: PosterYearOfStudy,
 	// Faculty of the poster.
-	pub faculty: Option<PosterFaculty>,
+	pub faculty: PosterFaculty,
 	// School of the user.
 	pub school_id: String,
 }

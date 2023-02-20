@@ -52,9 +52,9 @@ pub struct Credentials {
 pub struct NewUser {
 	username: Username,
 	// Year of study of the poster.
-	pub year_of_study: Option<PosterYearOfStudy>,
+	pub year_of_study: PosterYearOfStudy,
 	// Faculty of the poster.
-	pub faculty: Option<PosterFaculty>,
+	pub faculty: PosterFaculty,
 	// School of the poster.
 	pub school_id: String,
 }
@@ -146,6 +146,12 @@ pub async fn logout_all(db: web::Data<Database>, user: AuthenticatedUser) -> Api
 	success(())
 }
 
+/// Registers a new user
+///
+/// Requires a [`username`], [`year_of_study`], [`faculty`], and [`school_id`].
+///
+/// The [`year_of_study`] or [`faculty`] fields can be set to [`<ENUM_NAME>::Hidden`] to indicate
+/// the user desires them to be kept private.
 #[post("/users/")]
 pub async fn register(db: web::Data<Database>, _guest: Guest, new_user: web::Json<NewUser>) -> ApiResult<(), RegistrationError> {
 
