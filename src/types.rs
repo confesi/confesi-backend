@@ -66,9 +66,9 @@ pub struct User {
 	pub id: ObjectId,
 	pub username: Username,
 	// Year of study of the poster.
-	pub year_of_study: PosterYearOfStudy,
+	pub year_of_study: Option<PosterYearOfStudy>,
 	// Faculty of the poster.
-	pub faculty: PosterFaculty,
+	pub faculty: Option<PosterFaculty>,
 	// School of the user.
 	pub school_id: String,
 }
@@ -106,7 +106,6 @@ pub struct Post {
  	Graduate,
  	PhD,
  	Alumni,
-	Hidden, // A user wants this info to be private
 }
 
  /// The various faculties the creator of a post can be associated with.
@@ -123,7 +122,6 @@ pub struct Post {
  	Communication,
  	Arts,
  	Education,
-	Hidden, // A user wants this info to be private
  }
 
 #[derive(Deserialize)]

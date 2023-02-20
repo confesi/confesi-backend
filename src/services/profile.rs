@@ -15,9 +15,9 @@ use crate::{auth::{
 #[derive(Deserialize)]
 pub struct UpdatableProfileData {
 	// Year of study of the poster.
-	pub year_of_study: PosterYearOfStudy,
+	pub year_of_study: Option<PosterYearOfStudy>,
 	// Faculty of the poster.
-	pub faculty: PosterFaculty,
+	pub faculty: Option<PosterFaculty>,
 	// School of the poster.
 	pub school_id: Option<String>,
 }
@@ -25,9 +25,9 @@ pub struct UpdatableProfileData {
 #[derive(Serialize)]
 pub struct ProfileData {
 	// Year of study of the poster.
-	pub year_of_study: PosterYearOfStudy,
+	pub year_of_study: Option<PosterYearOfStudy>,
 	// Faculty of the poster.
-	pub faculty: PosterFaculty,
+	pub faculty: Option<PosterFaculty>,
 	// School of the poster.
 	pub school_id: String,
 	// Username of user
@@ -54,11 +54,13 @@ pub async fn get_profile(
 
 /// Updates user profile information.
 ///
-/// The [`year_of_study`] or [`faculty`] fields can be set to [`<ENUM_NAME>::Hidden`] to indicate
-/// the user desires them to be kept private. [`school_id`] is optional when updating.
+/// The [`year_of_study`] or [`faculty`] fields can be set to `null` (or not included) to indicate
+/// the user desires them to be kept private.
+///
+/// [`school_id`] is optional when updating, and will only be changed if a valid [`school_id`] is passed.
 ///
 /// Not a PATCH request because couldn't do this: https://stackoverflow.com/questions/44331037/how-can-i-distinguish-between-a-deserialized-field-that-is-missing-and-one-that
-/// because Actix-web's [`web::Json`] inferes both undefined and null as None, making PATCH requests difficult.
+/// because Actix-web's [`web::Json`] inferes both `undefined` and `null` as `None`, making PATCH requests difficult.
 #[put("/users/profile/")]
 pub async fn update_profile(
 	db: web::Data<Database>,

@@ -164,8 +164,6 @@ paths:
               required:
                 - username
                 - school_id
-                - faculty
-                - year_of_study
               properties:
                 username:
                   $ref: '#/components/schemas/username'
@@ -231,9 +229,6 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                  - year_of_study
-                  - faculty
               properties:
                 year_of_study:
                   type: string
