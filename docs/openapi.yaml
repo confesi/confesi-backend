@@ -361,7 +361,7 @@ paths:
         content:
           application/json:
             schema:
-              type: number
+              type: integer
               enum:
                 - -1
                 - 0
