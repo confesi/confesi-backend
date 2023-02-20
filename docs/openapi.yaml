@@ -243,12 +243,12 @@ paths:
               schema:
                 type: object
                 properties:
-                  year_of_study:
+                  error:
                     type: string
-                  faculty:
+                    example: null
+                  value:
                     type: string
-                  school_id:
-                    type: string
+                    example: null
         '400':
           content:
             application/json:
