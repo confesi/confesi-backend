@@ -163,10 +163,17 @@ paths:
               type: object
               required:
                 - username
+                - school_id
               properties:
                 username:
                   $ref: '#/components/schemas/username'
                   description: The new account’s username.
+                school_id:
+                  type: string
+                faculty:
+                  type: string
+                year_of_study:
+                  type: string
       responses:
         '200':
           description: The account was created successfully.
@@ -188,6 +195,68 @@ paths:
                     - UsernameTaken
         '500':
           $ref: '#/components/responses/unexpected'
+
+  /users/profile/:
+    get:
+      summary: List user profile data
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  year_of_study:
+                    type: string
+                  faculty:
+                    type: string
+                  school_id:
+                    type: string
+                  username:
+                    type: string
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+    put:
+      summary: Update user profile data
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                year_of_study:
+                  type: string
+                faculty:
+                  type: string
+                school_id:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  year_of_study:
+                    type: string
+                  faculty:
+                    type: string
+                  school_id:
+                    type: string
+        '400':
+          content:
+            application/json:
+              schema:
+                type: 'object'
+                properties:
+                  BadRequest:
+                    type: string
 
   /posts/:
     get:

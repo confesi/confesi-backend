@@ -14,7 +14,7 @@ use actix_web::http::header::{self, HeaderValue};
 use log::{
 	error,
 };
-use serde::Serialize;
+use serde::{Serialize};
 use serde::ser::{
 	SerializeStruct,
 	Serializer,
