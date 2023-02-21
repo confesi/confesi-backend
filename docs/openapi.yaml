@@ -258,6 +258,44 @@ paths:
                   BadRequest:
                     type: string
 
+  /posts/{post_id}/sentiment:
+    get:
+      summary: Calculates the sentiment of a post via masked ID.
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            id:
+              type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  positive:
+                    type: number
+                    example: 0.2241094597782496
+                  negative:
+                    type: number
+                    example: 0.44169222300857125
+                  neutral:
+                    type: number
+                    example: 0.3341983172131792
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+        '500':
+          $ref: '#/components/responses/unexpected'
+
+
   /posts/{post_id}/:
     get:
       summary: Get a singular post via masked post ID.
