@@ -43,7 +43,6 @@ use mongodb::options::{
 	ReadConcernLevel,
 	UpdateOptions,
 };
-use services::profile::add_watched;
 
 use crate::masked_oid::MaskingKey;
 use crate::middleware::HostCheckWrap;

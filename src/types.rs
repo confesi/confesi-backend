@@ -60,7 +60,7 @@ impl fmt::Display for UsernameInvalid {
 	}
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 pub struct User {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,

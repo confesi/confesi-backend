@@ -239,6 +239,7 @@ pub async fn school_by_query(
 
 	let possible_cursor = db.collection::<School>("schools").find(query, options).await;
 	match possible_cursor {
+		// TODO: is it okay to return an `_id` field inside the `School` struct?
 		Ok(cursor) => return success(cursor.try_collect::<Vec<School>>().await.map_err(|_| Failure::Unexpected)?),
 		Err(_) => return Err(Failure::Unexpected),
 	}
