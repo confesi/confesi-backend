@@ -1,7 +1,7 @@
 use mongodb::{bson::{
 	doc,
     to_bson, Document, Bson,
-}, options::{FindOneAndUpdateOptions, ReturnDocument, UpdateOptions}};
+}, options::{FindOneAndUpdateOptions, ReturnDocument, UpdateOptions, FindOneAndReplaceOptions}};
 use log::{
 	error,
 };
@@ -112,6 +112,7 @@ pub async fn update_watched(
 	new_school_ids: web::Json<Vec<String>>,
 ) -> ApiResult<(), ()> {
 let schools = to_bson(&new_school_ids).map_err(|_| Failure::Unexpected)?;
+let schools_length = to_bson(&new_school_ids.len()).map_err(|_| Failure::Unexpected)?;
 
 // TODO: check if all passed school ids are valid (contained inside `schools` collection)
 
@@ -123,34 +124,44 @@ let pipeline = vec![
                     "if": {
                         "$lte": [
                             { "$size": { "$ifNull": ["$watched_school_ids", []] } },
-                            conf::MAX_WATCHED_UNIVERSITIES - 1
+                            conf::MAX_WATCHED_UNIVERSITIES - (new_school_ids.len() as i32)
                         ],
                     },
                     "then": {
-											"$slice": [
-													{
-															"$setUnion": [{ "$ifNull": ["$watched_school_ids", []] }, &schools]
-													},
-													conf::MAX_WATCHED_UNIVERSITIES
-											]
-									},
+                        "$let": {
+                            "vars": {
+                                "union": { "$setUnion": [{ "$ifNull": ["$watched_school_ids", []] }, &schools] }
+                            },
+                            "in": {
+                                "$cond": {
+                                    "if": {
+                                        "$eq": [
+                                            { "$size": "$$union" },
+                                            { "$add": [{ "$size": { "$ifNull": ["$watched_school_ids", []] } }, schools_length] }
+                                        ]
+                                    },
+                                    "then": "$$union",
+                                    "else": "$watched_school_ids"
+                                }
+                            }
+                        }
+                    },
                     "else": "$watched_school_ids"
                 }
             }
         }
-    }
+    },
 ];
 
 let filter = doc! {"_id": user.id};
 
 let possible_update_result = db.collection::<User>("users").update_one(filter, pipeline, None).await;
-println!("RESULTS: {:?}", possible_update_result);
 	match possible_update_result {
 		Ok(update_result) => if update_result.modified_count == 1 {
 			return success(())
 		} else {
-			return Err(Failure::BadRequest("duplicate school or over limit"))
-		},
+			return Err(Failure::BadRequest("too many watched universities or duplicates"))
+		}
 		Err(_) => return Err(Failure::Unexpected),
 	};
 }
