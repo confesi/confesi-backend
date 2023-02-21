@@ -126,7 +126,7 @@ pub struct Post {
  	Education,
  }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct School {
 	#[serde(rename = "_id")]
 	pub id: String,

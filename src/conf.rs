@@ -36,3 +36,6 @@ pub const TRENDING_DECAY: f64 = 103616.32918473207;  // 45000 ln 10
 
 /// The max number of watched universities a user can have at once.
 pub const MAX_WATCHED_UNIVERSITIES: i32 = 3;
+
+/// The max number of results to return when searching for a school by query.
+pub const MAX_SCHOOL_RESULTS_PER_QUERY: i32 = 10;

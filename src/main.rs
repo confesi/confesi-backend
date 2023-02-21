@@ -128,6 +128,16 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 				None,
 			).await?;
 
+			// Create text-searchable index on `name`.
+			schools.create_index(
+				IndexModel::builder()
+					.keys(doc! {
+						"name": "text",
+					})
+					.build(),
+					None,
+			).await?;
+
 			schools.update_one(
 				doc! {
 					"_id": {"$eq": "UVIC"},
@@ -138,6 +148,24 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 						"position": {
 							"type": "Point",
 							"coordinates": [-123.3117, 48.4633],
+						},
+					},
+				},
+				UpdateOptions::builder()
+					.upsert(true)
+					.build(),
+			).await?;
+
+			schools.update_one(
+				doc! {
+					"_id": {"$eq": "UBC"},
+				},
+				doc! {
+					"$set": {
+						"name": "University of British Columbia",
+						"position": {
+							"type": "Point",
+							"coordinates": [-123.2460, 49.2606],
 						},
 					},
 				},
@@ -239,6 +267,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::get_watched)
 			.service(services::profile::add_watched)
 			.service(services::profile::delete_watched)
+			.service(services::profile::school_by_query)
 	})
 		.bind(("0.0.0.0", 3000))?
 		.run()

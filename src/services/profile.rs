@@ -1,11 +1,11 @@
 use mongodb::{bson::{
 	doc,
-    to_bson, Document,
-}};
+    to_bson, Document, Bson,
+}, options::{FindOptions, Hint}};
 use log::{
 	error,
 };
-use futures::{StreamExt};
+use futures::{StreamExt, TryStreamExt};
 
 
 use serde::{Deserialize, Serialize};
@@ -216,6 +216,32 @@ pub async fn add_watched(
 			}
 			Err(_) => return Err(Failure::Unexpected),
 		};
+}
+
+/// Searches for schools by query.
+#[get("/schools/{search_query}/")]
+pub async fn school_by_query(
+	db: web::Data<Database>,
+	search_query: web::Path<String>,
+) -> ApiResult<Vec<School>, ()> {
+
+	// Creates query using regex matching.
+	let query = doc! {
+    "name": {
+        "$regex": format!(".*{}.*", search_query),
+        "$options": "iu"
+    }
+	};
+
+	let options = FindOptions::builder()
+			.limit(i64::from(conf::MAX_SCHOOL_RESULTS_PER_QUERY))
+			.build();
+
+	let possible_cursor = db.collection::<School>("schools").find(query, options).await;
+	match possible_cursor {
+		Ok(cursor) => return success(cursor.try_collect::<Vec<School>>().await.map_err(|_| Failure::Unexpected)?),
+		Err(_) => return Err(Failure::Unexpected),
+	}
 }
 
 /// Gets the current list of universities the user is watching.

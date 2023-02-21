@@ -258,9 +258,35 @@ paths:
                   BadRequest:
                     type: string
 
+  /schools/{search_query}/:
+    get:
+      summary: Search for schools by text query (loose matches)
+      parameters:
+        - name: search_query
+          in: path
+          required: true
+          schema:
+            type: string
+            example: victoria
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _id:
+                    type: string
+                    example: UVIC
+                  name:
+                    type: string
+                    example: University of Victoria
+        '500':
+          $ref: '#/components/responses/unexpected'
+
   /users/watched/:
     get:
-      summary: Get the universities a user has watched
+      summary: Get schools a user has watched
       responses:
         '200':
           content:
@@ -282,7 +308,7 @@ paths:
                     BadRequest:
                       type: string
     post:
-      summary: Add to the list of universities a user has watched
+      summary: Add to the list of schools a user has watched
       requestBody:
         content:
           application/json:
@@ -314,7 +340,7 @@ paths:
                     BadRequest:
                       type: string
     delete:
-      summary: Delete universities from the list a user has watched
+      summary: Delete schools from the list a user has watched
       requestBody:
         content:
           application/json:
