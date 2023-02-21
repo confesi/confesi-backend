@@ -232,6 +232,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::posts::create)
 			.service(services::posts::list)
 			.service(services::posts::vote)
+			.service(services::posts::sentiment_analysis)
 			.service(services::profile::update_profile)
 			.service(services::profile::get_profile)
 			.service(services::posts::get_single_post)

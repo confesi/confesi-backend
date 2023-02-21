@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+extern crate vader_sentiment;
 
 use actix_web::{
 	get,
@@ -107,7 +108,7 @@ pub async fn get_single_post(
 	// Query the database for the post.
 	let possible_post = db.collection::<Post>("posts").find_one(doc! {"_id": post_id}, None).await;
 	let post: Post;
-	// Return 400 if the post doesn't exist, 500 if there's a query error, or the [`Detail`] post itself 
+	// Return 400 if the post doesn't exist, 500 if there's a query error, or the [`Detail`] post itself
 	// if everything works.
 	match possible_post {
 		Ok(possible_post) => match possible_post {
@@ -455,4 +456,54 @@ pub async fn vote(
 		})?;
 
 	success(votes)
+}
+
+#[derive(Serialize)]
+pub struct Sentiment {
+	pub positive: f64,
+	pub negative: f64,
+	pub neutral: f64,
+}
+
+/// Route for calculating the sentiment analysis of a post via a specific masked ID.
+///
+/// Mainly exists for the sake of existing. AKA, most users won't use it, and it's trivial, but it adds context
+/// to the app, allowing users to click something new when they get bored.
+/// TODO: Look into citing the `vader_sentiment` tool.
+#[get("/posts/{post_id}/sentiment")]
+pub async fn sentiment_analysis(
+	db: web::Data<Database>,
+	masking_key: web::Data<&'static MaskingKey>,
+	post_id: web::Path<MaskedObjectId>
+) -> ApiResult<Sentiment, ()> {
+	// Unmask the ID, in order for it to be used for querying.
+	let post_id = masking_key.unmask(&post_id)
+		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
+	// Query the database for the post.
+	let possible_post = db.collection::<Post>("posts").find_one(doc! {"_id": post_id}, None).await;
+	let post: Post;
+	// Return 400 if the post doesn't exist, 500 if there's a query error, or an `Sentiment`
+	// if everything works.
+	match possible_post {
+		Ok(possible_post) => match possible_post {
+			Some(found_post) => post = found_post,
+			None => return Err(Failure::BadRequest("no post found for this id")),
+		},
+		Err(_) => return Err(Failure::Unexpected),
+	};
+	let analyzer = vader_sentiment::SentimentIntensityAnalyzer::new();
+	let scores = analyzer.polarity_scores(&post.text);
+	let positive = match scores.get("pos") {
+		None => return Err(Failure::Unexpected),
+		Some(positive) => positive,
+	};
+	let neutral = match scores.get("neu") {
+		None => return Err(Failure::Unexpected),
+		Some(neutral) => neutral,
+	};
+	let negative = match scores.get("neg") {
+		None => return Err(Failure::Unexpected),
+		Some(negative) => negative,
+	};
+	success(Sentiment { positive: *positive, negative: *negative, neutral: *neutral})
 }
