@@ -1,7 +1,7 @@
 use mongodb::{bson::{
 	doc,
     to_bson, Document, Bson,
-}, options::{FindOneAndUpdateOptions, ReturnDocument}};
+}, options::{FindOneAndUpdateOptions, ReturnDocument, UpdateOptions}};
 use log::{
 	error,
 };
@@ -111,24 +111,48 @@ pub async fn update_watched(
 	db: web::Data<Database>,
 	new_school_ids: web::Json<Vec<String>>,
 ) -> ApiResult<(), ()> {
-	let document = db.collection::<User>("users").find_one_and_update(
-		doc! {
-				"_id": user.id,
-				"$where": format!("this.watched_school_ids.length + {} <= 10", new_school_ids.len())
+let schools = to_bson(&new_school_ids).map_err(|_| Failure::Unexpected)?;
+
+// TODO: check if all passed school ids are valid (contained inside `schools` collection)
+
+let pipeline = vec![
+    doc! {
+        "$addFields": {
+            "watched_school_ids": {
+                "$cond": {
+                    "if": {
+                        "$lte": [
+                            { "$size": { "$ifNull": ["$watched_school_ids", []] } },
+                            conf::MAX_WATCHED_UNIVERSITIES - 1
+                        ],
+                    },
+                    "then": {
+											"$slice": [
+													{
+															"$setUnion": [{ "$ifNull": ["$watched_school_ids", []] }, &schools]
+													},
+													conf::MAX_WATCHED_UNIVERSITIES
+											]
+									},
+                    "else": "$watched_school_ids"
+                }
+            }
+        }
+    }
+];
+
+let filter = doc! {"_id": user.id};
+
+let possible_update_result = db.collection::<User>("users").update_one(filter, pipeline, None).await;
+println!("RESULTS: {:?}", possible_update_result);
+	match possible_update_result {
+		Ok(update_result) => if update_result.modified_count == 1 {
+			return success(())
+		} else {
+			return Err(Failure::BadRequest("duplicate school or over limit"))
 		},
-		doc! {
-				"$addToSet": {
-						"watched_school_ids": {
-								"$each": to_bson(&new_school_ids).map_err(|_| Failure::Unexpected)?,
-								"$slice": -10
-						}
-				}
-		},
-		None,
-)
-.await;
-	println!("RESULT: {:?}", document);
-	success(())
+		Err(_) => return Err(Failure::Unexpected),
+	};
 }
 
 #[get("/users/watched/")]
