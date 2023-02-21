@@ -60,7 +60,7 @@ impl fmt::Display for UsernameInvalid {
 	}
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct User {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
@@ -71,6 +71,8 @@ pub struct User {
 	pub faculty: Option<PosterFaculty>,
 	// School of the user.
 	pub school_id: String,
+	// Watched universities of the user
+	pub watched_school_ids: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Serialize)]

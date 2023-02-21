@@ -1,16 +1,16 @@
 use mongodb::{bson::{
 	doc,
-    to_bson, Document,
-}};
+    to_bson, Document, Bson,
+}, options::{FindOneAndUpdateOptions, ReturnDocument}};
 use log::{
 	error,
 };
 use serde::{Deserialize, Serialize};
-use actix_web::{ put, web, get };
+use actix_web::{ put, web, get, post };
 use mongodb::Database;
 use crate::{auth::{
 	AuthenticatedUser,
-}, api_types::{ApiResult, Failure, success}, types::{User, PosterYearOfStudy, PosterFaculty, School}, to_unexpected};
+}, api_types::{ApiResult, Failure, success}, types::{User, PosterYearOfStudy, PosterFaculty, School}, to_unexpected, conf};
 
 #[derive(Deserialize)]
 pub struct UpdatableProfileData {
@@ -102,5 +102,53 @@ pub async fn update_profile(
 			None => return Err(Failure::BadRequest("no account matches this id")),
 		},
 		Err(_) => return Err(Failure::Unexpected)
+	};
+}
+
+#[put("/users/watched/")]
+pub async fn update_watched(
+	user: AuthenticatedUser,
+	db: web::Data<Database>,
+	new_school_ids: web::Json<Vec<String>>,
+) -> ApiResult<(), ()> {
+	let document = db.collection::<User>("users").find_one_and_update(
+		doc! {
+				"_id": user.id,
+				"$where": format!("this.watched_school_ids.length + {} <= 10", new_school_ids.len())
+		},
+		doc! {
+				"$addToSet": {
+						"watched_school_ids": {
+								"$each": to_bson(&new_school_ids).map_err(|_| Failure::Unexpected)?,
+								"$slice": -10
+						}
+				}
+		},
+		None,
+)
+.await;
+	println!("RESULT: {:?}", document);
+	success(())
+}
+
+#[get("/users/watched/")]
+pub async fn get_watched(
+	user: AuthenticatedUser,
+	db: web::Data<Database>,
+) -> ApiResult<Box<Vec<String>>, ()>{
+	let user = db.collection::<User>("users")
+		.find_one(
+		doc! {"_id": {"$eq": user.id}},
+		None
+	).await;
+	match user {
+		Ok(possible_user) => match possible_user {
+			Some(user) => match user.watched_school_ids {
+				Some(watched_school_ids) => return success(Box::new(watched_school_ids)),
+				None => return success(Box::new(vec![])),
+			},
+			None => return Err(Failure::BadRequest("no account matches this id")),
+		},
+		Err(_) => return Err(Failure::Unexpected),
 	};
 }
