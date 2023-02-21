@@ -459,7 +459,7 @@ pub async fn vote(
 }
 
 #[derive(Serialize)]
-pub struct AdvancedDetail {
+pub struct Sentiment {
 	pub positive: f64,
 	pub negative: f64,
 	pub neutral: f64,
@@ -475,14 +475,14 @@ pub async fn sentiment_analysis(
 	db: web::Data<Database>,
 	masking_key: web::Data<&'static MaskingKey>,
 	post_id: web::Path<MaskedObjectId>
-) -> ApiResult<AdvancedDetail, ()> {
+) -> ApiResult<Sentiment, ()> {
 	// Unmask the ID, in order for it to be used for querying.
 	let post_id = masking_key.unmask(&post_id)
 		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
 	// Query the database for the post.
 	let possible_post = db.collection::<Post>("posts").find_one(doc! {"_id": post_id}, None).await;
 	let post: Post;
-	// Return 400 if the post doesn't exist, 500 if there's a query error, or an `AdvancedDetail`
+	// Return 400 if the post doesn't exist, 500 if there's a query error, or an `Sentiment`
 	// if everything works.
 	match possible_post {
 		Ok(possible_post) => match possible_post {
@@ -505,5 +505,5 @@ pub async fn sentiment_analysis(
 		None => return Err(Failure::Unexpected),
 		Some(negative) => negative,
 	};
-	success(AdvancedDetail { positive: *positive, negative: *negative, neutral: *neutral})
+	success(Sentiment { positive: *positive, negative: *negative, neutral: *neutral})
 }
