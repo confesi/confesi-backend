@@ -1,12 +1,15 @@
 use mongodb::{bson::{
 	doc,
-    to_bson, Document, Bson,
-}, options::{FindOneAndUpdateOptions, ReturnDocument, UpdateOptions, FindOneAndReplaceOptions}};
+    to_bson, Document,
+}};
 use log::{
 	error,
 };
+use futures::{StreamExt};
+
+
 use serde::{Deserialize, Serialize};
-use actix_web::{ put, web, get, post };
+use actix_web::{ put, web, get, delete, post };
 use mongodb::Database;
 use crate::{auth::{
 	AuthenticatedUser,
@@ -105,67 +108,117 @@ pub async fn update_profile(
 	};
 }
 
-#[put("/users/watched/")]
-pub async fn update_watched(
+/// Deletes a list of universities from a user's watched list.
+///
+/// If nothing is deleted (you passed an invalid university, or one you want to delete isn't there) a 400 is returned.
+#[delete("/users/watched/")]
+pub async fn delete_watched(
 	user: AuthenticatedUser,
 	db: web::Data<Database>,
-	new_school_ids: web::Json<Vec<String>>,
+	delete_school_ids: web::Json<Vec<String>>,
 ) -> ApiResult<(), ()> {
-let schools = to_bson(&new_school_ids).map_err(|_| Failure::Unexpected)?;
-let schools_length = to_bson(&new_school_ids.len()).map_err(|_| Failure::Unexpected)?;
-
-// TODO: check if all passed school ids are valid (contained inside `schools` collection)
-
-let pipeline = vec![
-    doc! {
-        "$addFields": {
-            "watched_school_ids": {
-                "$cond": {
-                    "if": {
-                        "$lte": [
-                            { "$size": { "$ifNull": ["$watched_school_ids", []] } },
-                            conf::MAX_WATCHED_UNIVERSITIES - (new_school_ids.len() as i32)
-                        ],
-                    },
-                    "then": {
-                        "$let": {
-                            "vars": {
-                                "union": { "$setUnion": [{ "$ifNull": ["$watched_school_ids", []] }, &schools] }
-                            },
-                            "in": {
-                                "$cond": {
-                                    "if": {
-                                        "$eq": [
-                                            { "$size": "$$union" },
-                                            { "$add": [{ "$size": { "$ifNull": ["$watched_school_ids", []] } }, schools_length] }
-                                        ]
-                                    },
-                                    "then": "$$union",
-                                    "else": "$watched_school_ids"
-                                }
-                            }
-                        }
-                    },
-                    "else": "$watched_school_ids"
-                }
-            }
-        }
-    },
-];
-
-let filter = doc! {"_id": user.id};
-
-let possible_update_result = db.collection::<User>("users").update_one(filter, pipeline, None).await;
+	let to_be_deleted_schools = to_bson(&delete_school_ids).map_err(|_| Failure::Unexpected)?;
+	let filter = doc! {"_id": {"$eq": user.id}};
+  let update = doc! { "$pull": { "watched_school_ids": { "$in": &to_be_deleted_schools } } };
+	let possible_update_result = db.collection::<User>("users").update_one(filter, update, None).await;
 	match possible_update_result {
 		Ok(update_result) => if update_result.modified_count == 1 {
 			return success(())
 		} else {
-			return Err(Failure::BadRequest("too many watched universities or duplicates"))
+			return Err(Failure::BadRequest("nothing deleted"))
 		}
 		Err(_) => return Err(Failure::Unexpected),
 	};
 }
 
+/// Adds a list of universities to a user's watched list.
+///
+/// If a university already exists in the list, or if adding anything from the list would put it over the
+/// max watched university's size limit, a 400 is returned.
+#[post("/users/watched/")]
+pub async fn add_watched(
+	user: AuthenticatedUser,
+	db: web::Data<Database>,
+	mut new_school_ids: web::Json<Vec<String>>,
+) -> ApiResult<(), ()> {
+	new_school_ids.dedup();
+	let schools_bson = to_bson(&new_school_ids).map_err(|_| Failure::Unexpected)?;
+	let schools_length_bson = to_bson(&new_school_ids.len()).map_err(|_| Failure::Unexpected)?;
+	let schools_length_i32;
+	if new_school_ids.len() > i32::MAX as usize {
+		return Err(Failure::Unexpected);
+	} else {
+		schools_length_i32 = (new_school_ids.len() as i32);
+	}
+
+	// Check if all passed school ids are valid
+
+	let filter = doc! { "_id": { "$in": &schools_bson } };
+
+	let possible_found_schools = db.collection::<School>("schools")
+			.find(filter, None)
+			.await;
+
+	match possible_found_schools {
+		Ok(cursor) => {
+			let items_found = cursor.count().await;
+			if items_found > usize::MAX {return Err(Failure::Unexpected)};
+			if items_found != new_school_ids.len() {return Err(Failure::BadRequest("not all items provided are valid schools"))};
+		}
+		Err(_) => return Err(Failure::Unexpected),
+	};
+
+	let pipeline = vec![
+			doc! {
+					"$addFields": {
+							"watched_school_ids": {
+									"$cond": {
+											"if": {
+													"$lte": [
+															{ "$size": { "$ifNull": ["$watched_school_ids", []] } },
+															conf::MAX_WATCHED_UNIVERSITIES - schools_length_i32
+													],
+											},
+											"then": {
+													"$let": {
+															"vars": {
+																	"union": { "$setUnion": [{ "$ifNull": ["$watched_school_ids", []] }, &schools_bson] }
+															},
+															"in": {
+																	"$cond": {
+																			"if": {
+																					"$eq": [
+																							{ "$size": "$$union" },
+																							{ "$add": [{ "$size": { "$ifNull": ["$watched_school_ids", []] } }, schools_length_bson] }
+																					]
+																			},
+																			"then": "$$union",
+																			"else": "$watched_school_ids"
+																	}
+															}
+													}
+											},
+											"else": "$watched_school_ids"
+									}
+							}
+					}
+			},
+	];
+
+	let filter = doc! {"_id": user.id};
+
+	let possible_update_result = db.collection::<User>("users").update_one(filter, pipeline, None).await;
+		match possible_update_result {
+			Ok(update_result) => if update_result.modified_count == 1 {
+				return success(())
+			} else {
+				return Err(Failure::BadRequest("too many watched universities or duplicates"))
+			}
+			Err(_) => return Err(Failure::Unexpected),
+		};
+}
+
+/// Gets the current list of universities the user is watching.
 #[get("/users/watched/")]
 pub async fn get_watched(
 	user: AuthenticatedUser,

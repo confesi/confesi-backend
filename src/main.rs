@@ -43,7 +43,7 @@ use mongodb::options::{
 	ReadConcernLevel,
 	UpdateOptions,
 };
-use services::profile::update_watched;
+use services::profile::add_watched;
 
 use crate::masked_oid::MaskingKey;
 use crate::middleware::HostCheckWrap;
@@ -237,7 +237,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::get_profile)
 			.service(services::posts::get_single_post)
 			.service(services::profile::get_watched)
-			.service(services::profile::update_watched)
+			.service(services::profile::add_watched)
+			.service(services::profile::delete_watched)
 	})
 		.bind(("0.0.0.0", 3000))?
 		.run()
