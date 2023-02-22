@@ -143,7 +143,7 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 				},
 				doc! {
 					"$set": {
-						"name": "University of Victoria",
+						"name": "University of Victoria (UVIC)",
 						"position": {
 							"type": "Point",
 							"coordinates": [-123.3117, 48.4633],
@@ -161,7 +161,7 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 				},
 				doc! {
 					"$set": {
-						"name": "University of British Columbia",
+						"name": "University of British Columbia (UBC)",
 						"position": {
 							"type": "Point",
 							"coordinates": [-123.2460, 49.2606],

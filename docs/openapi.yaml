@@ -260,14 +260,14 @@ paths:
 
   /schools/{search_query}/:
     get:
-      summary: Search for schools by text query (loose matches)
+      summary: Search for schools by text query (matches by university name and abbreviation)
       parameters:
         - name: search_query
           in: path
           required: true
           schema:
             type: string
-            example: victoria
+            example: victoria, vic, uvic, ub, british columb
       responses:
         '200':
           content:
@@ -275,10 +275,10 @@ paths:
               schema:
                 type: object
                 properties:
-                  _id:
+                  school_id:
                     type: string
                     example: UVIC
-                  name:
+                  full_name:
                     type: string
                     example: University of Victoria
         '500':

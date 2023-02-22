@@ -218,31 +218,67 @@ pub async fn add_watched(
 		};
 }
 
+#[derive(Serialize)]
+pub struct SchoolDetail {
+		pub school_id: String,
+    pub full_name: String,
+}
+
 /// Searches for schools by query.
+///
+/// This matches to either the name (ex: "University of Victoria") or abbreviation (ex: "UVIC") of a school. It does so
+/// by initially having the name and abbreviation both stored in the `name` field of the `School` document.
+/// This is because you can only have 1 text index per collection. It then separates them out before
+/// sending them back to the frontend.
 #[get("/schools/{search_query}/")]
 pub async fn school_by_query(
-	db: web::Data<Database>,
-	search_query: web::Path<String>,
-) -> ApiResult<Vec<School>, ()> {
+    db: web::Data<Database>,
+    search_query: web::Path<String>,
+) -> ApiResult<Vec<SchoolDetail>, ()> {
+    let query = doc! {
+        "name": {
+            "$regex": format!(".*{}.*", search_query),
+            "$options": "iu"
+        }
+    };
 
-	// Creates query using regex matching.
-	let query = doc! {
-    "name": {
-        "$regex": format!(".*{}.*", search_query),
-        "$options": "iu"
+    let options = FindOptions::builder()
+        .limit(i64::from(conf::MAX_SCHOOL_RESULTS_PER_QUERY))
+        .build();
+
+    let possible_cursor = db.collection::<School>("schools").find(query, options).await;
+    match possible_cursor {
+        Ok(cursor) => {
+					let schools = cursor.try_collect::<Vec<School>>().await.map_err(|_| Failure::Unexpected)?;
+					let mut school_details = Vec::new();
+					for school in schools {
+							let full_name = match extract_name(&school.name) {
+									Some(full_name) => full_name,
+									None => return Err(Failure::Unexpected),
+							};
+
+							let school_detail = SchoolDetail {
+									full_name: full_name.to_string(),
+									school_id: school.id,
+							};
+							school_details.push(school_detail);
+					}
+					return success(school_details);
+        }
+        Err(_) => return Err(Failure::Unexpected),
     }
-	};
+}
 
-	let options = FindOptions::builder()
-			.limit(i64::from(conf::MAX_SCHOOL_RESULTS_PER_QUERY))
-			.build();
-
-	let possible_cursor = db.collection::<School>("schools").find(query, options).await;
-	match possible_cursor {
-		// TODO: is it okay to return an `_id` field inside the `School` struct?
-		Ok(cursor) => return success(cursor.try_collect::<Vec<School>>().await.map_err(|_| Failure::Unexpected)?),
-		Err(_) => return Err(Failure::Unexpected),
+/// Extracts the name from a `String` that has additional details in brackets.
+///
+/// Example: "University of Victoria (UVIC)" -> "University of Victoria".
+///
+/// Example: "University of British Columbia (UBC)" -> "University of British Columbia".
+fn extract_name(input: &str) -> Option<&str> {
+	if let Some(idx) = input.rfind('(') {
+			return Some(&input[..idx].trim());
 	}
+	None
 }
 
 /// Gets the current list of universities the user is watching.
