@@ -84,19 +84,11 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 			None,
 		),
 
-		// Create index on `user_id` field.
+		// Create a unique index on the `content_id`-`user_id` field combination
+		// so a user can't have duplicate saved content.
 		saved.create_index(
 			IndexModel::builder()
-				.keys(doc! {"user_id": 1})
-				.build(),
-			None,
-		),
-
-		// Create a unique index on `content_id` field (unique so there)
-		// can't be any duplicate content saved.
-		saved.create_index(
-			IndexModel::builder()
-				.keys(doc! {"content_id": 1})
+				.keys(doc! {"content_id": 1, "user_id": 1})
 				.options(
 					IndexOptions::builder()
 						.unique(true)
@@ -260,6 +252,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::get_profile)
 			.service(services::posts::get_single_post)
 			.service(services::saved::save_content)
+			.service(services::saved::delete_content)
 	})
 		.bind(("0.0.0.0", 3000))?
 		.run()
