@@ -43,6 +43,7 @@ use mongodb::options::{
 	ReadConcernLevel,
 	UpdateOptions,
 };
+use types::SavedContent;
 
 use crate::masked_oid::MaskingKey;
 use crate::middleware::HostCheckWrap;
@@ -62,6 +63,7 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 	let sessions = db.collection::<Session>("sessions");
 	let posts = db.collection::<Post>("posts");
 	let votes = db.collection::<Vote>("votes");
+	let saved = db.collection::<SavedContent>("saved");
 
 	try_join!(
 		users.create_index(
@@ -76,6 +78,28 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 								.strength(CollationStrength::Primary)
 								.build()
 						)
+						.build()
+				)
+				.build(),
+			None,
+		),
+
+		// Create index on `user_id` field.
+		saved.create_index(
+			IndexModel::builder()
+				.keys(doc! {"user_id": 1})
+				.build(),
+			None,
+		),
+
+		// Create a unique index on `content_id` field (unique so there)
+		// can't be any duplicate content saved.
+		saved.create_index(
+			IndexModel::builder()
+				.keys(doc! {"content_id": 1})
+				.options(
+					IndexOptions::builder()
+						.unique(true)
 						.build()
 				)
 				.build(),
@@ -235,6 +259,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::update_profile)
 			.service(services::profile::get_profile)
 			.service(services::posts::get_single_post)
+			.service(services::saved::save_content)
 	})
 		.bind(("0.0.0.0", 3000))?
 		.run()

@@ -61,6 +61,22 @@ impl fmt::Display for UsernameInvalid {
 }
 
 #[derive(Deserialize)]
+pub struct SavedContent {
+	#[serde(rename = "_id")]
+	pub id: ObjectId,
+	pub user_id: ObjectId,
+	pub content_type: SavedType,
+	pub content_id: ObjectId,
+	pub saved_at: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum SavedType {
+	Comment,
+	Post
+}
+
+#[derive(Deserialize)]
 pub struct User {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,

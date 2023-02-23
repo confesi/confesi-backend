@@ -107,7 +107,7 @@ pub async fn get_single_post(
 	// Query the database for the post.
 	let possible_post = db.collection::<Post>("posts").find_one(doc! {"_id": post_id}, None).await;
 	let post: Post;
-	// Return 400 if the post doesn't exist, 500 if there's a query error, or the [`Detail`] post itself 
+	// Return 400 if the post doesn't exist, 500 if there's a query error, or the [`Detail`] post itself
 	// if everything works.
 	match possible_post {
 		Ok(possible_post) => match possible_post {
