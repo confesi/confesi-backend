@@ -68,6 +68,10 @@ pub struct SavedContent {
 	pub content_type: SavedType,
 	pub content_id: ObjectId,
 	pub saved_at: String,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	post: Option<Post>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	comment: Option<Comment>,
 }
 
 #[derive(Serialize, Deserialize)]

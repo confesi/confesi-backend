@@ -253,6 +253,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::posts::get_single_post)
 			.service(services::saved::save_content)
 			.service(services::saved::delete_content)
+			.service(services::saved::get_content)
 	})
 		.bind(("0.0.0.0", 3000))?
 		.run()

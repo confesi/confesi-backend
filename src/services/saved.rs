@@ -1,17 +1,21 @@
 use actix_web::http::StatusCode;
+use chrono::{Utc, TimeZone, ParseError};
 use actix_web::{
 	get,
 	post,
 	delete
 };
 use actix_web::web;
+use futures::TryStreamExt;
+use mongodb::options::FindOptions;
 use mongodb::{
 	Database,
+	bson
 };
 use mongodb::bson::{
 	DateTime,
 	Document,
-	doc, to_bson,
+	doc, to_bson, Bson,
 };
 use mongodb::error::{
 	ErrorKind,
@@ -25,6 +29,8 @@ use crate::api_types::{
 	Failure,
 	success, ApiError, failure,
 };
+use crate::services::posts::Detail;
+use crate::{conf, to_unexpected};
 use crate::masked_oid::{
 	self,
 	MaskingKey,
@@ -49,7 +55,7 @@ impl ApiError for SaveError {
 
 
 #[derive(Deserialize)]
-pub struct SavedContentRequest {
+pub struct SaveContentRequest {
 	pub content_type: SavedType,
 	pub content_id: MaskedObjectId,
 }
@@ -59,7 +65,7 @@ pub struct SavedContentRequest {
 pub async fn save_content(
 	db: web::Data<Database>,
 	user: AuthenticatedUser,
-	request: web::Json<SavedContentRequest>,
+	request: web::Json<SaveContentRequest>,
 	masking_key: web::Data<&'static MaskingKey>,
 ) -> ApiResult<(), SaveError> {
 
@@ -97,7 +103,7 @@ pub async fn delete_content(
 	db: web::Data<Database>,
 	masking_key: web::Data<&'static MaskingKey>,
 	user: AuthenticatedUser,
-	request: web::Json<SavedContentRequest>,
+	request: web::Json<SaveContentRequest>,
 ) -> ApiResult<(), ()> {
 
 	let content_object_id = masking_key.unmask(&request.content_id)
@@ -116,11 +122,76 @@ pub async fn delete_content(
 	}
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Filter {
+	Comments,
+	Posts,
+	Mixed,
+}
+
+#[derive(Deserialize)]
+pub struct FetchSavedRequest {
+	pub filter: Filter,
+	pub after: Option<String>
+}
+
+#[derive(Serialize)]
+pub struct FetchSavedDetail {
+	// pub results: Vec<>
+}
+
+
 #[get("/users/saved/")]
 pub async fn get_content(
 	db: web::Data<Database>,
 	masking_key: web::Data<&'static MaskingKey>,
 	user: AuthenticatedUser,
-) -> ApiResult<(), ()> {
-	todo!()
+	query: web::Query<FetchSavedRequest>,
+) -> ApiResult<Box<[Detail]>, ()> {
+	let c = conf::SAVED_CONTENT_PAGE_SIZE;
+	let filter: Document;
+	if let Some(datetime) = &query.after {
+    match datetime.parse::<chrono::DateTime<Utc>>() {
+			Ok(date) => {
+				let date = Bson::DateTime(DateTime::from_millis(date.timestamp_millis()));
+				filter = doc! {"date": { "$gt": date }};
+			},
+			Err(_) => return Err(Failure::BadRequest("invalid date")),
+		}
+	} else {
+		filter = doc! {}
+	}
+
+	let options = FindOptions::builder()
+        .limit(5)
+        .sort(doc! { "date": -1 })
+        .build();
+
+	db.collection::<SavedContent>("saved").find(filter, options).await
+			.map_err(to_unexpected!("Getting posts cursor failed"))?
+			.map_ok(|post| Ok(Detail {
+				id: masking_key.mask(&post.id),
+				sequential_id: masking_key.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
+				reply_context: None,
+				text: post.text,
+				created_at: (
+					post.id.timestamp()
+						.try_to_rfc3339_string()
+						.map_err(to_unexpected!("Formatting post timestamp failed"))?
+				),
+				votes: Votes {
+					up: u32::try_from(post.votes_up).unwrap(),
+					down: u32::try_from(post.votes_down).unwrap(),
+				},
+			}))
+			.try_collect::<Vec<Result<Detail, Failure<()>>>>()
+			.await
+			.map_err(to_unexpected!("Getting posts failed"))?
+			.into_iter()
+			.collect::<Result<Vec<Detail>, Failure<()>>>()?;
+
+	println!("RESULTS: {:?}", {&query.after});
+
+	success(())
 }
