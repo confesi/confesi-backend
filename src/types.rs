@@ -14,12 +14,13 @@ use blake2::digest::consts::U16;
 use mongodb::bson::{
 	Binary,
 	Bson,
-	DateTime,
+	DateTime, Document, doc,
 };
 use mongodb::bson::oid::ObjectId;
 use mongodb::bson::spec::BinarySubtype;
 use rand::RngCore;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Deserializer, Serializer};
+use serde::de::Error;
 
 use crate::conf;
 
@@ -60,21 +61,23 @@ impl fmt::Display for UsernameInvalid {
 	}
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Serialize)]
 pub struct SavedContent {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
 	pub user_id: ObjectId,
 	pub content_type: SavedType,
 	pub content_id: ObjectId,
-	pub saved_at: String,
+	#[serde(with = "Rfc3339DateTime")]
+	pub saved_at: Rfc3339DateTime,
 	#[serde(skip_serializing_if = "Option::is_none")]
-	post: Option<Post>,
+	pub post: Option<Post>,
 	#[serde(skip_serializing_if = "Option::is_none")]
-	comment: Option<Comment>,
+	pub comment: Option<Post>, // TODO: make into `Comment`
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum SavedType {
 	Comment,
 	Post
@@ -101,7 +104,7 @@ pub struct Session {
 	pub last_used: DateTime,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Serialize)]
 pub struct Post {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
@@ -250,5 +253,36 @@ mod token {
 		fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 			write!(f, "invalid hash length")
 		}
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Rfc3339DateTime(DateTime);
+
+// Custom deserializer for `Rfc3339DateTime` (`bson::DateTime` wrapper).
+impl<'de> Deserialize<'de> for Rfc3339DateTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let datetime = DateTime::deserialize(deserializer)?;
+        datetime.try_to_rfc3339_string().map_err(|e| D::Error::custom(format!("Error deserializing: {e}")))?;
+        Ok(Rfc3339DateTime(datetime))
+    }
+}
+
+use serde::ser;
+
+
+// Custom serializer for `Rfc3339DateTime` (`bson::DateTime` wrapper).
+impl Serialize for Rfc3339DateTime {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+			S: ser::Serializer,
+	{
+		let timestamp = self.0.try_to_rfc3339_string().map_err(|e| ser::Error::custom(format!("Error serializing: {e}")))?;
+		// let doc = doc! { "$date": timestamp };
+		timestamp.serialize(serializer)
+			// self.0.serialize(serializer)
 	}
 }

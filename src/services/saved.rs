@@ -1,13 +1,13 @@
 use actix_web::http::StatusCode;
-use chrono::{Utc, TimeZone, ParseError};
 use actix_web::{
 	get,
 	post,
 	delete
 };
 use actix_web::web;
-use futures::TryStreamExt;
-use mongodb::options::FindOptions;
+use chrono::Utc;
+use futures::{StreamExt};
+use mongodb::options::{FindOptions, AggregateOptions};
 use mongodb::{
 	Database,
 	bson
@@ -29,16 +29,18 @@ use crate::api_types::{
 	Failure,
 	success, ApiError, failure,
 };
-use crate::services::posts::Detail;
-use crate::{conf, to_unexpected};
+use crate::services::posts::Votes;
+use crate::{to_unexpected, conf};
 use crate::masked_oid::{
 	self,
 	MaskingKey,
 	MaskedObjectId,
 };
 use crate::types::{
- SavedType, SavedContent,
+ SavedType, SavedContent, Post, Rfc3339DateTime,
 };
+
+use super::posts::Detail;
 
 #[derive(Debug, Serialize)]
 pub enum SaveError {
@@ -69,7 +71,24 @@ pub async fn save_content(
 	masking_key: web::Data<&'static MaskingKey>,
 ) -> ApiResult<(), SaveError> {
 
-	// Save content
+	// First verify the the passed `content_id` actually exists in the
+	// corresponding `SavedType` collection, else throw a 400.
+
+	let content_id = masking_key.unmask(&request.content_id)
+		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
+
+		let collection_to_verify = match &request.content_type {
+			SavedType::Comment => db.collection::<Post>("posts"), // TODO: change this to `Comment` collection once it is implemented.
+			SavedType::Post => db.collection::<Post>("posts"),
+		};
+
+	match collection_to_verify.find_one(doc! {"_id": {"$eq": content_id}}, None).await {
+		Ok(possible_post) => if let None = possible_post {return Err(Failure::BadRequest("content doesn't exist as specified type"))},
+		Err(_) => return Err(Failure::Unexpected),
+	}
+
+	// Save the content to the `saved` collection.
+
 	let content_type_bson = to_bson(&request.content_type).map_err(|_| Failure::Unexpected)?;
 
 	let content_object_id = masking_key.unmask(&request.content_id)
@@ -127,7 +146,6 @@ pub async fn delete_content(
 pub enum Filter {
 	Comments,
 	Posts,
-	Mixed,
 }
 
 #[derive(Deserialize)]
@@ -137,61 +155,146 @@ pub struct FetchSavedRequest {
 }
 
 #[derive(Serialize)]
-pub struct FetchSavedDetail {
-	// pub results: Vec<>
+pub struct SavedContentDetail {
+	pub after: Option<Rfc3339DateTime>,
+	#[serde(skip_serializing_if = "<[_]>::is_empty")]
+	pub posts: Vec<Detail>,
+	#[serde(skip_serializing_if = "<[_]>::is_empty")]
+	pub comments: Vec<Detail>, // TODO: make into `Comment`
 }
 
 
+// TODO: sort by 2 fields (objID & date)
+// TODO: move `Detail` to `types.rs`?
 #[get("/users/saved/")]
 pub async fn get_content(
 	db: web::Data<Database>,
 	masking_key: web::Data<&'static MaskingKey>,
 	user: AuthenticatedUser,
 	query: web::Query<FetchSavedRequest>,
-) -> ApiResult<Box<[Detail]>, ()> {
-	let c = conf::SAVED_CONTENT_PAGE_SIZE;
-	let filter: Document;
+) -> ApiResult<Box<SavedContentDetail>, ()> {
+	let date_filter: Document;
 	if let Some(datetime) = &query.after {
     match datetime.parse::<chrono::DateTime<Utc>>() {
 			Ok(date) => {
 				let date = Bson::DateTime(DateTime::from_millis(date.timestamp_millis()));
-				filter = doc! {"date": { "$gt": date }};
+				date_filter = doc! {"saved_at": { "$gt": date }};
 			},
 			Err(_) => return Err(Failure::BadRequest("invalid date")),
 		}
 	} else {
-		filter = doc! {}
+		date_filter = doc! {}
 	}
 
-	let options = FindOptions::builder()
-        .limit(5)
-        .sort(doc! { "date": -1 })
-        .build();
+	let lookup_comments_or_posts = match query.filter {
+    Filter::Posts => doc! {
+        "$lookup": {
+            "from": "posts",
+            "localField": "content_id",
+            "foreignField": "_id",
+            "as": "post"
+        }
+    },
+    Filter::Comments => doc! {
+        "$lookup": {
+            "from": "comments",
+            "localField": "content_id",
+            "foreignField": "_id",
+            "as": "comment"
+        }
+    }
+	};
 
-	db.collection::<SavedContent>("saved").find(filter, options).await
-			.map_err(to_unexpected!("Getting posts cursor failed"))?
-			.map_ok(|post| Ok(Detail {
-				id: masking_key.mask(&post.id),
-				sequential_id: masking_key.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
-				reply_context: None,
-				text: post.text,
-				created_at: (
-					post.id.timestamp()
-						.try_to_rfc3339_string()
-						.map_err(to_unexpected!("Formatting post timestamp failed"))?
-				),
-				votes: Votes {
-					up: u32::try_from(post.votes_up).unwrap(),
-					down: u32::try_from(post.votes_down).unwrap(),
-				},
-			}))
-			.try_collect::<Vec<Result<Detail, Failure<()>>>>()
-			.await
-			.map_err(to_unexpected!("Getting posts failed"))?
-			.into_iter()
-			.collect::<Result<Vec<Detail>, Failure<()>>>()?;
+	// TODO: make more idiomatic - DRY principle
+	let projection = match query.filter {
+		Filter::Posts => doc! {
+			"$project": {
+					"_id": 1,
+					"user_id": 1,
+					"content_type": 1,
+					"content_id": 1,
+					"saved_at": 1,
+					"post": {
+							"$arrayElemAt": ["$post", 0]
+					},
+			}
+		},
+		Filter::Comments => doc! {
+			"$project": {
+					"_id": 1,
+					"user_id": 1,
+					"content_type": 1,
+					"content_id": 1,
+					"saved_at": 1,
+					"comment": {
+							"$arrayElemAt": ["$comment", 0]
+					}
+			}
+		},
+	};
 
-	println!("RESULTS: {:?}", {&query.after});
+	let pipeline = vec![
+		doc! {
+			"$match": {
+					"$and": [
+							date_filter,
+							{ "user_id": { "$eq": user.id } }
+					]
+			}
+		},
+		lookup_comments_or_posts,
+		projection,
+		doc! { "$limit":  conf::SAVED_CONTENT_PAGE_SIZE }
+	];
 
-	success(())
+	// TODO: sort results?
+
+	let cursor = db.collection::<SavedContent>("saved").aggregate(pipeline, None).await;
+
+	let mut posts: Vec<Detail> = Vec::new();
+
+	let mut comments: Vec<Detail> = Vec::new(); // todo: change to `Comments` type when they're implemented
+
+	let mut content_after: Option<Rfc3339DateTime> = None;
+
+	match cursor {
+		Ok(mut cursor) => {
+				while let Some(content) = cursor.next().await {
+						match content {
+								Ok(content) => {
+									let saved_content: SavedContent = bson::from_bson(Bson::Document(content)).map_err(|_| return Failure::Unexpected)?;
+									content_after = Some(saved_content.saved_at);
+									// If it has posts
+									// TODO: implement comments
+									if let Some(post) = saved_content.post {
+										posts.push(Detail {
+											id: masking_key.mask(&post.id),
+											sequential_id: masking_key.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
+											reply_context: None,
+											text: post.text,
+											created_at: (
+												post.id.timestamp()
+													.try_to_rfc3339_string()
+													.map_err(|_| return Failure::Unexpected)?
+											),
+											votes: Votes {
+												up: u32::try_from(post.votes_up).unwrap(),
+												down: u32::try_from(post.votes_down).unwrap(),
+											},
+										});
+									}
+								}
+								Err(_) => return Err(Failure::Unexpected),
+						}
+				}
+		}
+		Err(_) => return Err(Failure::Unexpected),
+	}
+	success(Box::new(SavedContentDetail {
+		after: content_after,
+		comments: comments,
+		posts: posts,
+	}))
 }
+
+// TODO: remove unnecessary `Serialize`s

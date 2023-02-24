@@ -35,4 +35,4 @@ pub const TRENDING_EPOCH: i64 = 1640995200;  // 2022-01-01T00:00:00Z
 pub const TRENDING_DECAY: f64 = 103616.32918473207;  // 45000 ln 10
 
 /// How many comments or posts to return at once from a user's saved content.
-pub const SAVED_CONTENT_PAGE_SIZE: i32 = 25;
+pub const SAVED_CONTENT_PAGE_SIZE: i64 = 5;
