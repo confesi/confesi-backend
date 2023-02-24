@@ -1,11 +1,11 @@
 use mongodb::{bson::{
 	doc,
-    to_bson, Document, Bson,
-}, options::{FindOptions, Hint}};
+    to_bson, Document,
+}};
 use log::{
 	error,
 };
-use futures::{StreamExt, TryStreamExt};
+use futures::{StreamExt};
 
 
 use serde::{Deserialize, Serialize};
@@ -83,13 +83,13 @@ pub async fn update_profile(
 	if let Some(school_id) = &update_data.school_id {
 		// Check to see if a user's new proposed [`school_id`] is valid (and exists), before adding
 		// it to the [`update_doc`].
-		db.collection::<School>("schools")
-			.find_one(doc! {"_id": {"$eq": school_id}}, None)
-			.await
-			.map_err(to_unexpected!("validating school's existence failed"))?
-			.ok_or(Failure::BadRequest("invalid school id"))?;
-		update_doc.insert("school_id", school_id);
-	}
+	db.collection::<School>("schools")
+		.find_one(doc! {"_id": {"$eq": school_id}}, None)
+		.await
+		.map_err(to_unexpected!("validating school's existence failed"))?
+		.ok_or(Failure::BadRequest("invalid school id"))?;
+	update_doc.insert("school_id", school_id);
+}
 
 	// Finds, updates, and returns a success-200 response.
 	// Throws 400 if no account matches id, and 500 upon unknown update error.
@@ -144,12 +144,7 @@ pub async fn add_watched(
 	new_school_ids.dedup();
 	let schools_bson = to_bson(&new_school_ids).map_err(|_| Failure::Unexpected)?;
 	let schools_length_bson = to_bson(&new_school_ids.len()).map_err(|_| Failure::Unexpected)?;
-	let schools_length_i32;
-	if new_school_ids.len() > i32::MAX as usize {
-		return Err(Failure::Unexpected);
-	} else {
-		schools_length_i32 = (new_school_ids.len() as i32);
-	}
+	let schools_length_i32 = i32::try_from(new_school_ids.len()).unwrap();
 
 	// Check if all passed school ids are valid
 
@@ -162,7 +157,6 @@ pub async fn add_watched(
 	match possible_found_schools {
 		Ok(cursor) => {
 			let items_found = cursor.count().await;
-			if items_found > usize::MAX {return Err(Failure::Unexpected)};
 			if items_found != new_school_ids.len() {return Err(Failure::BadRequest("not all items provided are valid schools"))};
 		}
 		Err(_) => return Err(Failure::Unexpected),
@@ -208,77 +202,20 @@ pub async fn add_watched(
 	let filter = doc! {"_id": user.id};
 
 	let possible_update_result = db.collection::<User>("users").update_one(filter, pipeline, None).await;
-		match possible_update_result {
-			Ok(update_result) => if update_result.modified_count == 1 {
-				return success(())
-			} else {
-				return Err(Failure::BadRequest("too many watched universities or duplicates"))
-			}
-			Err(_) => return Err(Failure::Unexpected),
-		};
+	match possible_update_result {
+		Ok(update_result) => if update_result.modified_count == 1 {
+			return success(())
+		} else {
+			return Err(Failure::BadRequest("too many watched universities or duplicates"))
+		}
+		Err(_) => return Err(Failure::Unexpected),
+	};
 }
 
 #[derive(Serialize)]
 pub struct SchoolDetail {
-		pub school_id: String,
-    pub full_name: String,
-}
-
-/// Searches for schools by query.
-///
-/// This matches to either the name (ex: "University of Victoria") or abbreviation (ex: "UVIC") of a school. It does so
-/// by initially having the name and abbreviation both stored in the `name` field of the `School` document.
-/// This is because you can only have 1 text index per collection. It then separates them out before
-/// sending them back to the frontend.
-#[get("/schools/{search_query}/")]
-pub async fn school_by_query(
-    db: web::Data<Database>,
-    search_query: web::Path<String>,
-) -> ApiResult<Vec<SchoolDetail>, ()> {
-    let query = doc! {
-        "name": {
-            "$regex": format!(".*{}.*", search_query),
-            "$options": "iu"
-        }
-    };
-
-    let options = FindOptions::builder()
-        .limit(i64::from(conf::MAX_SCHOOL_RESULTS_PER_QUERY))
-        .build();
-
-    let possible_cursor = db.collection::<School>("schools").find(query, options).await;
-    match possible_cursor {
-        Ok(cursor) => {
-					let schools = cursor.try_collect::<Vec<School>>().await.map_err(|_| Failure::Unexpected)?;
-					let mut school_details = Vec::new();
-					for school in schools {
-							let full_name = match extract_name(&school.name) {
-									Some(full_name) => full_name,
-									None => return Err(Failure::Unexpected),
-							};
-
-							let school_detail = SchoolDetail {
-									full_name: full_name.to_string(),
-									school_id: school.id,
-							};
-							school_details.push(school_detail);
-					}
-					return success(school_details);
-        }
-        Err(_) => return Err(Failure::Unexpected),
-    }
-}
-
-/// Extracts the name from a `String` that has additional details in brackets.
-///
-/// Example: "University of Victoria (UVIC)" -> "University of Victoria".
-///
-/// Example: "University of British Columbia (UBC)" -> "University of British Columbia".
-fn extract_name(input: &str) -> Option<&str> {
-	if let Some(idx) = input.rfind('(') {
-			return Some(&input[..idx].trim());
-	}
-	None
+	pub school_id: String,
+	pub full_name: String,
 }
 
 /// Gets the current list of universities the user is watching.

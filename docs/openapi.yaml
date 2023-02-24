@@ -258,32 +258,6 @@ paths:
                   BadRequest:
                     type: string
 
-  /schools/{search_query}/:
-    get:
-      summary: Search for schools by text query (matches by university name and abbreviation)
-      parameters:
-        - name: search_query
-          in: path
-          required: true
-          schema:
-            type: string
-            example: victoria, vic, uvic, ub, british columb
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  school_id:
-                    type: string
-                    example: UVIC
-                  full_name:
-                    type: string
-                    example: University of Victoria
-        '500':
-          $ref: '#/components/responses/unexpected'
-
   /users/watched/:
     get:
       summary: Get schools a user has watched
