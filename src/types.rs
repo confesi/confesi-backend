@@ -2,7 +2,7 @@ pub use self::token::{
 	SessionToken,
 	SessionTokenHash,
 };
-
+use serde::ser;
 use std::convert::TryFrom;
 use std::fmt;
 use std::str::{self, FromStr};
@@ -61,7 +61,7 @@ impl fmt::Display for UsernameInvalid {
 	}
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 pub struct SavedContent {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
@@ -76,7 +76,7 @@ pub struct SavedContent {
 	pub comment: Option<Post>, // TODO: make into `Comment` once commenting is implemented.
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SavedType {
 	Comment,
@@ -104,7 +104,7 @@ pub struct Session {
 	pub last_used: DateTime,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 pub struct Post {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
@@ -270,9 +270,6 @@ impl<'de> Deserialize<'de> for Rfc3339DateTime {
         Ok(Rfc3339DateTime(datetime))
     }
 }
-
-use serde::ser;
-
 
 // Custom serializer for `Rfc3339DateTime` (`bson::DateTime` wrapper).
 impl Serialize for Rfc3339DateTime {

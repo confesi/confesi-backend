@@ -70,7 +70,7 @@ pub async fn save_content(
 	masking_key: web::Data<&'static MaskingKey>,
 ) -> ApiResult<(), SaveError> {
 
-	// First, verifies the the passed `content_id` actually exists in the
+	// First, verifies the passed `content_id` actually exists in the
 	// corresponding `SavedType` (comments or posts) collection, else throw a 400.
 
 	let content_id = masking_key.unmask(&request.content_id)
@@ -89,12 +89,14 @@ pub async fn save_content(
 
 	// Save the content to the `saved` collection.
 
-	let content_type_bson = to_bson(&request.content_type).map_err(|_| Failure::Unexpected)?;
+	let content_type_bson = to_bson(&request.content_type)
+		.map_err(|_| Failure::Unexpected)?;
 
 	let content_object_id = masking_key.unmask(&request.content_id)
-	.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
+		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
 
-	let content_object_id_bson = to_bson(&content_object_id).map_err(|_| Failure::Unexpected)?;
+	let content_object_id_bson = to_bson(&content_object_id)
+		.map_err(|_| Failure::Unexpected)?;
 
 	// Document that respresents a saved bit of content.
 	let content_to_be_saved = doc! {
@@ -104,7 +106,7 @@ pub async fn save_content(
 		"saved_at": DateTime::now(),
 	};
 
-	// Insert the saved content reference to the database. If it already exists (content already saved),
+	// Insert the saved content to the database. If it already exists (content already saved),
 	// then throw a custom 409 error ("AlreadySaved"). If successful, return a 200. If unknown error occurs,
 	// then throw a 500.
 	match db.collection::<Document>("saved").insert_one(content_to_be_saved, None).await {
@@ -134,7 +136,8 @@ pub async fn delete_content(
 	// Unmasks ID of content to be deleted.
 	let content_object_id = masking_key.unmask(&request.content_id)
 		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
-	let content_id_bson = to_bson(&content_object_id).map_err(|_| Failure::Unexpected)?;
+	let content_id_bson = to_bson(&content_object_id)
+		.map_err(|_| Failure::Unexpected)?;
 
 	// Document that'll match against content to be deleted.
 	let to_delete_document = doc! {
@@ -146,7 +149,7 @@ pub async fn delete_content(
 	// then a 400 is returned because the resource didn't exist in the first place. If
 	// something else goes wrong, a 500 is returned.
 	match db.collection::<SavedContent>("saved").delete_one(to_delete_document, None).await {
-		Ok(delete_result) => if delete_result.deleted_count == 1 {return success(())} else {return Err(Failure::BadRequest("this saved content doesn't exist"))},
+		Ok(delete_result) => if delete_result.deleted_count == 1 {return success(())} else {return Err(Failure::BadRequest("this content doesn't exist"))},
 		Err(_) => return Err(Failure::Unexpected),
 	}
 }
@@ -176,9 +179,7 @@ pub struct FetchSavedRequest {
 pub struct SavedContentDetail {
 	pub after_date: Option<Rfc3339DateTime>,
 	pub after_id: Option<MaskedObjectId>,
-	#[serde(skip_serializing_if = "<[_]>::is_empty")]
 	pub posts: Vec<Detail>,
-	#[serde(skip_serializing_if = "<[_]>::is_empty")]
 	pub comments: Vec<Detail>, // TODO: Make for Comment once commenting is implemented.
 }
 
@@ -193,7 +194,7 @@ pub struct SavedContentDetail {
 ///
 /// Technically speaking, it doesn't look for `ObjectId`s AFTER `after_id`, it just ensures
 /// that it doesn't return the same `ObjectId`, hence allowing you to not miss any bits of content
-/// with duplicate saved-dates. Named `after_id` for simplicity.
+/// with multiple saved-dates that are the exact same. Named `after_id` for simplicity.
 #[get("/users/saved/")]
 pub async fn get_content(
 	db: web::Data<Database>,
@@ -231,7 +232,7 @@ pub async fn get_content(
 
 	// You can either use no filters (to get the first bit of data), or both filters (to get subsequent data).
 	// Using only 1 filter doesn't guarentee accurate data, thus, doing so yields a 400-level response.
-	if filters_added != 2 && filters_added != 0 {return Err(Failure::BadRequest("must use no filters, or both"))}
+	if filters_added == 1 {return Err(Failure::BadRequest("must use no filters, or both"))}
 
 	// Determines which collection to do the `$lookup`s from.
 	let lookup_comments_or_posts = match query.filter {
@@ -324,13 +325,14 @@ pub async fn get_content(
 								Ok(content) => {
 
 									// Convert results found to `SavedContent` type.
-									let saved_content: SavedContent = bson::from_bson(Bson::Document(content)).map_err(|_| return Failure::Unexpected)?;
+									let saved_content: SavedContent = bson::from_bson(Bson::Document(content))
+										.map_err(|_| return Failure::Unexpected)?;
 
 									// Set the cursors with the newest found details.
 									date_after = Some(saved_content.saved_at);
 									id_after = Some(masking_key.mask(&saved_content.id));
 
-									// If it has posts, add them to the `posts` vector to be returned.
+									// If this `saved_content` has posts, add them to the `posts` vector to be returned.
 									if let Some(post) = saved_content.post {
 										posts.push(Detail {
 											id: masking_key.mask(&post.id),
@@ -348,7 +350,6 @@ pub async fn get_content(
 											},
 										});
 									}
-
 									// TODO: Implement adding `Comment`s to the comments vector once commenting is implemented.
 								}
 								Err(_) => return Err(Failure::Unexpected),
