@@ -77,7 +77,7 @@ pub async fn save_content(
 		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
 
 	let collection_to_verify = match &request.content_type {
-		// TODO: Change this to a Comment collection once it is implemented.
+		// TODO: Change this to a `Comment` collection once it is implemented.
 		SavedType::Comment => db.collection::<Post>("posts"),
 		SavedType::Post => db.collection::<Post>("posts"),
 	};
@@ -183,13 +183,17 @@ pub struct SavedContentDetail {
 }
 
 
-/// The query request for fetching your saved content.
+/// The query request for fetching a user's saved content.
 ///
 /// Allows you to specify a `filter` to determine if you want comments or posts returned.
 ///
 /// Also allows for you to optionally add an `after_date` and `after_id` to return content
 /// after these 2 fields (static cursor-based pagination). Requires both because `ObjectId`s alone
 /// aren't fully accurate, and `after_date` isn't guaranteed to be unique.
+///
+/// Technically speaking, it doesn't look for `ObjectId`s AFTER `after_id`, it just ensures
+/// that it doesn't return the same `ObjectId`, hence allowing you to not miss any bits of content
+/// with duplicate saved-dates. Named `after_id` for simplicity.
 #[get("/users/saved/")]
 pub async fn get_content(
 	db: web::Data<Database>,
@@ -306,7 +310,7 @@ pub async fn get_content(
 	let mut posts: Vec<Detail> = Vec::new();
 
 	// Found comments.
-	// TODO: Change this to a Comment vector once commenting is implemented.
+	// TODO: Change this to a `Comment` vector once commenting is implemented.
 	let comments: Vec<Detail> = Vec::new();
 
 	// The two cursors for retrieving subsequent data, explicitly set to `None` to start.
@@ -345,7 +349,7 @@ pub async fn get_content(
 										});
 									}
 
-									// TODO: Implement adding Comments to the comments vector once commenting is implemented.
+									// TODO: Implement adding `Comment`s to the comments vector once commenting is implemented.
 								}
 								Err(_) => return Err(Failure::Unexpected),
 						}

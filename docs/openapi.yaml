@@ -302,6 +302,181 @@ paths:
                   votes:
                     $ref: '#/components/schemas/votes'
 
+  /users/saved/:
+    post:
+      summary: Save content (post or comment) to view later.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content_type
+                - content_id
+              properties:
+                content_type:
+                  type: string
+                  enum:
+                    - post
+                    - comment
+                content_id:
+                  type: string
+                  $ref: '#/components/schemas/masked-id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/success'
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '409':
+          description: An error occurred saving the content.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                error:
+                  type: string
+                  enum:
+                    - AlreadySaved
+        '500':
+          $ref: '#/components/responses/unexpected'
+    delete:
+      summary: Delete some saved content.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content_type
+                - content_id
+              properties:
+                content_type:
+                  type: string
+                  enum:
+                    - post
+                    - comment
+                content_id:
+                  type: string
+                  $ref: '#/components/schemas/masked-id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/success'
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'
+    get:
+      summary: View the paginated saved user content.
+      parameters:
+        - in: query
+          name: filter
+          schema:
+            type: string
+            example: post
+            enum:
+            - post
+            - comment
+          description: Allows you to choose between fetching comments or posts.
+        - in: query
+          name: after_date
+          schema:
+            type: string
+            example: "2023-02-24T12:22:37.989Z"
+          description: Allows you to return content with a saved-date after this.
+        - in: query
+          name: after_id
+          schema:
+            type: string
+            $ref: '#/components/schemas/masked-id'
+          description: Helps in ensuring no content is skipped (as could happen using just the `after_date`).
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - after_date
+                  - after_id
+                properties:
+                  after_date:
+                    type: string
+                    example: "2023-02-24T12:21:54.061Z"
+                  after_id:
+                    type: string
+                    $ref: '#/components/schemas/masked-id'
+                  posts:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - sequential_id
+                        - reply_context
+                        - text
+                        - created_at
+                        - votes
+                      properties:
+                        id:
+                          $ref: '#/components/schemas/masked-id'
+                        sequential_id:
+                          $ref: '#/components/schemas/masked-sequential-id'
+                        reply_context:
+                          anyOf:
+                            - type: 'null'
+                            - type: object
+                              required:
+                                - id
+                              properties:
+                                id:
+                                  $ref: '#/components/schemas/masked-id'
+                        text:
+                          type: string
+                        created_at:
+                          type: string
+                        votes:
+                          $ref: '#/components/schemas/votes'
+                  comments:
+                    type: string
+                    example: to be implemented
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'
   /posts/:
     get:
       summary: List posts

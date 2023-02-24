@@ -73,7 +73,7 @@ pub struct SavedContent {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub post: Option<Post>,
 	#[serde(skip_serializing_if = "Option::is_none")]
-	pub comment: Option<Post>, // TODO: make into `Comment`
+	pub comment: Option<Post>, // TODO: make into `Comment` once commenting is implemented.
 }
 
 #[derive(Serialize, Deserialize, Debug)]
