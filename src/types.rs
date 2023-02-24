@@ -61,7 +61,7 @@ impl fmt::Display for UsernameInvalid {
 	}
 }
 
-#[derive(Deserialize, Debug, Serialize)]
+#[derive(Deserialize, Debug)]
 pub struct SavedContent {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
@@ -104,7 +104,7 @@ pub struct Session {
 	pub last_used: DateTime,
 }
 
-#[derive(Deserialize, Debug, Serialize)]
+#[derive(Deserialize, Debug)]
 pub struct Post {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
@@ -281,8 +281,6 @@ impl Serialize for Rfc3339DateTime {
 			S: ser::Serializer,
 	{
 		let timestamp = self.0.try_to_rfc3339_string().map_err(|e| ser::Error::custom(format!("Error serializing: {e}")))?;
-		// let doc = doc! { "$date": timestamp };
 		timestamp.serialize(serializer)
-			// self.0.serialize(serializer)
 	}
 }

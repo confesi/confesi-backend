@@ -98,6 +98,14 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 			None,
 		),
 
+		// Creates index so that you can sort by `saved_at`.
+		saved.create_index(
+			IndexModel::builder()
+				.keys(doc! {"saved_at": -1})
+				.build(),
+			None,
+		),
+
 		sessions.create_index(
 			IndexModel::builder()
 				.keys(doc! {"user": 1})
