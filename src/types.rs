@@ -72,7 +72,7 @@ pub struct User {
 	// School of the user.
 	pub school_id: String,
 	// Watched universities of the user
-	pub watched_school_ids: Option<Vec<String>>,
+	pub watched_school_ids: Vec<String>,
 }
 
 #[derive(Deserialize, Serialize)]
