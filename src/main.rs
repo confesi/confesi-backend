@@ -145,6 +145,24 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 					.build(),
 			).await?;
 
+			schools.update_one(
+				doc! {
+					"_id": {"$eq": "UBC"},
+				},
+				doc! {
+					"$set": {
+						"name": "University of British Columbia",
+						"position": {
+							"type": "Point",
+							"coordinates": [-123.2460, 49.2606],
+						},
+					},
+				},
+				UpdateOptions::builder()
+					.upsert(true)
+					.build(),
+			).await?;
+
 			Ok(())
 		},
 
@@ -235,6 +253,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::update_profile)
 			.service(services::profile::get_profile)
 			.service(services::posts::get_single_post)
+			.service(services::profile::get_watched)
+			.service(services::profile::add_watched)
+			.service(services::profile::delete_watched)
 	})
 		.bind(("0.0.0.0", 3000))?
 		.run()
