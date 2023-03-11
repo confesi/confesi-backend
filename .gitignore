@@ -1,0 +1,16 @@
+Cargo.lock
+target/
+guide/build/
+/gh-pages
+
+*.so
+*.out
+*.pyc
+*.pid
+*.sock
+*~
+.DS_Store
+**/*.rs.bk
+.idea
+.vscode
+.prettierignore

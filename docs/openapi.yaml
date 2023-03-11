@@ -479,6 +479,79 @@ paths:
         '500':
           $ref: '#/components/responses/unexpected'
 
+  /posts/hottest/:
+     get:
+       summary: Get the hottest posts from a specific day
+       description: Example => http://localhost:3000/posts/hottest/?date=1676440599281
+       parameters:
+         - name: date
+           in: query
+           required: false
+           schema:
+             type: string
+           example: 1676440599281
+       responses:
+         '400':
+           description: Some part of the request was malformed, or invalid.
+           content:
+             application/json:
+               schema:
+                 type: object
+                 properties:
+                   error:
+                     type: string
+                     enum:
+                       - BadRequest
+         '200':
+           content:
+             application/json:
+               schema:
+                 type: 'object'
+                 required:
+                   - value
+                 properties:
+                   error:
+                     type: string
+                     enum:
+                       - null
+                   value:
+                     type: 'object'
+                     required:
+                       - posts
+                     properties:
+                       posts:
+                         type: array
+                         items:
+                           type: object
+                           required:
+                             - id
+                             - sequential_id
+                             - reply_context
+                             - text
+                             - created_at
+                             - votes
+                           properties:
+                             id:
+                               $ref: '#/components/schemas/masked-id'
+                             sequential_id:
+                               $ref: '#/components/schemas/masked-sequential-id'
+                             reply_context:
+                               anyOf:
+                                 - type: 'null'
+                                 - type: object
+                                   required:
+                                     - id
+                                   properties:
+                                     id:
+                                       $ref: '#/components/schemas/masked-id'
+                             text:
+                               type: string
+                             created_at:
+                               type: string
+                             votes:
+                               $ref: '#/components/schemas/votes'
+
+
   /posts/{post_id}/vote:
     put:
       summary: Vote on post
