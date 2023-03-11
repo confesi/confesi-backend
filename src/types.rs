@@ -65,6 +65,14 @@ pub struct User {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
 	pub username: Username,
+	// Year of study of the poster.
+	pub year_of_study: Option<PosterYearOfStudy>,
+	// Faculty of the poster.
+	pub faculty: Option<PosterFaculty>,
+	// School of the user.
+	pub school_id: String,
+	// Watched universities of the user
+	pub watched_school_ids: Vec<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -88,6 +96,36 @@ pub struct Post {
 	pub trending_score: f64,
 	pub created_at: DateTime,
 }
+
+ /// The various years of study the creator of a post can be.
+ #[derive(Deserialize, Serialize, Clone, Debug)]
+ #[serde(rename_all = "snake_case")]
+ pub enum PosterYearOfStudy {
+ 	One,
+ 	Two,
+ 	Three,
+ 	Four,
+ 	Five,
+ 	Graduate,
+ 	PhD,
+ 	Alumni,
+}
+
+ /// The various faculties the creator of a post can be associated with.
+ #[derive(Deserialize, Serialize, Clone, Debug)]
+ #[serde(rename_all = "snake_case")]
+ pub enum PosterFaculty {
+ 	Business,
+ 	Medicine,
+ 	SocialScience,
+ 	History,
+ 	Engineering,
+ 	ComputerScience,
+ 	Psychology,
+ 	Communication,
+ 	Arts,
+ 	Education,
+ }
 
 #[derive(Deserialize)]
 pub struct School {
