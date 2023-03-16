@@ -65,6 +65,14 @@ pub struct User {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
 	pub username: Username,
+	// Year of study of the poster.
+	pub year_of_study: Option<PosterYearOfStudy>,
+	// Faculty of the poster.
+	pub faculty: Option<PosterFaculty>,
+	// School of the user.
+	pub school_id: String,
+	// Watched universities of the user
+	pub watched_school_ids: Vec<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -127,7 +135,7 @@ pub struct Session {
  	Graduate,
  	PhD,
  	Alumni,
- }
+}
 
  /// The various faculties the creator of a post can be associated with.
  #[derive(Deserialize, Serialize, Clone, Debug)]

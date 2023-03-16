@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod posts;
+pub mod profile;
 
 use actix_web::{
 	HttpRequest,
@@ -8,7 +9,6 @@ use actix_web::{
 use actix_web::web;
 use futures::TryStreamExt;
 use log::{
-	debug,
 	error,
 	info,
 	warn,

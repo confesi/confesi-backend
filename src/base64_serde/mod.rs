@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use std::fmt;
 
 use base64::display::Base64Display;
@@ -27,12 +30,18 @@ where
 		}
 
 		fn visit_str<E: Error>(self, s: &str) -> Result<Self::Value, E> {
-			let mut result = [0_u8; N];
+			if (N * 4 + 2) / 3 == s.len() {
+				let mut result = [0_u8; N];
 
-			match base64::decode_config_slice(s, base64::URL_SAFE_NO_PAD, &mut result) {
-				Ok(decoded_count) if decoded_count == N => Ok(result),
-				_ => Err(Error::invalid_value(Unexpected::Str(s), &self)),
+				match base64::decode_config_slice(s, base64::URL_SAFE_NO_PAD, &mut result) {
+					Ok(decoded_count) if decoded_count == N => {
+						return Ok(result);
+					}
+					_ => {}
+				}
 			}
+
+			Err(Error::invalid_value(Unexpected::Str(s), &self))
 		}
 	}
 

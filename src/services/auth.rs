@@ -10,7 +10,7 @@ use log::{
 use mongodb::Database;
 use mongodb::bson::{
 	DateTime,
-	doc,
+	doc, Document, to_bson,
 };
 use mongodb::error::{
 	ErrorKind,
@@ -39,7 +39,7 @@ use crate::types::{
 	Session,
 	SessionToken,
 	User,
-	Username,
+	Username, PosterYearOfStudy, PosterFaculty, School,
 };
 
 #[derive(Deserialize)]
@@ -51,6 +51,12 @@ pub struct Credentials {
 #[serde(deny_unknown_fields)]
 pub struct NewUser {
 	username: Username,
+	// Year of study of the poster.
+	pub year_of_study: Option<PosterYearOfStudy>,
+	// Faculty of the poster.
+	pub faculty: Option<PosterFaculty>,
+	// School of the poster.
+	pub school_id: String,
 }
 
 #[serde_as]
@@ -140,10 +146,34 @@ pub async fn logout_all(db: web::Data<Database>, user: AuthenticatedUser) -> Api
 	success(())
 }
 
+/// Registers a new user.
+///
+/// Requires a [`username`] and [`school_id`].
+///
+/// The [`year_of_study`] and [`faculty`] fields can be set to `null` (or not included) to indicate
+/// the user desires them to be kept private.
 #[post("/users/")]
 pub async fn register(db: web::Data<Database>, _guest: Guest, new_user: web::Json<NewUser>) -> ApiResult<(), RegistrationError> {
-	let users = db.collection::<NewUser>("users");
-	let op = users.insert_one(&*new_user, None);
+
+	// Check to see if their [`school_id`] is valid.
+	db.collection::<School>("schools")
+		.find_one(doc! {"_id": {"$eq": new_user.school_id.clone()}}, None)
+		.await
+		.map_err(to_unexpected!("validating school's existence failed"))?
+		.ok_or(Failure::BadRequest("invalid school id"))?;
+
+	let users = db.collection::<Document>("users");
+
+	let op = users.insert_one(
+		doc! {
+			"year_of_study": to_bson(&new_user.year_of_study).map_err(to_unexpected!("Converting year of study to bson failed"))?,
+			"faculty": to_bson(&new_user.faculty).map_err(to_unexpected!("Converting faculty to bson failed"))?,
+			"username": to_bson(&new_user.username).map_err(to_unexpected!("Converting username to bson failed"))?,
+			"watched_school_ids": to_bson::<Vec<String>>(&vec![]).map_err(to_unexpected!("Converting empty vector to bson failed"))?,
+			"school_id": &new_user.school_id,
+		},
+		None
+	);
 
 	match op.await {
 		Ok(result) => {

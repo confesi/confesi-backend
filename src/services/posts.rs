@@ -109,6 +109,51 @@ pub struct Created {
 	pub id: MaskedObjectId,
 }
 
+/// Route for retrieving a post by a specific masked ID.
+#[get("/posts/{post_id}/")]
+pub async fn get_single_post(
+	db: web::Data<Database>,
+	masking_key: web::Data<&'static MaskingKey>,
+	post_id: web::Path<MaskedObjectId>
+) -> ApiResult<Box<Detail>, ()> {
+	// Unmask the ID, in order for it to be used for querying.
+	let post_id = masking_key.unmask(&post_id)
+		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
+	// Query the database for the post.
+	let possible_post = db.collection::<Post>("posts").find_one(doc! {"_id": post_id}, None).await;
+	let post: Post;
+	// Return 400 if the post doesn't exist, 500 if there's a query error, or the [`Detail`] post itself
+	// if everything works.
+	match possible_post {
+		Ok(possible_post) => match possible_post {
+			Some(found_post) => post = found_post,
+			None => return Err(Failure::BadRequest("no post found for this id")),
+		},
+		Err(_) => return Err(Failure::Unexpected),
+	};
+	success(Box::new(Detail {
+		tags: add_tags(&post),
+		id: masking_key.mask(&post.id),
+		sequential_id: masking_key.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
+		reply_context: None,
+		header_text: post.header_text,
+		body_text: post.body_text,
+		faculty: post.faculty,
+		genre: post.genre,
+		school_id: post.school_id,
+		year_of_study: post.year_of_study,
+		created_at: (
+			post.id.timestamp()
+				.try_to_rfc3339_string()
+				.map_err(to_unexpected!("Formatting post timestamp failed"))?
+		),
+		votes: Votes {
+			up: u32::try_from(post.votes_up).unwrap(),
+			down: u32::try_from(post.votes_down).unwrap(),
+		},
+	}))
+}
+
 /// Auto-apply tags based on certain parameters a [`Post`] struct contains.
 fn add_tags(post: &Post) -> Vec<&'static str> {
 	let mut tags: Vec<&str> = vec![];

@@ -163,10 +163,17 @@ paths:
               type: object
               required:
                 - username
+                - school_id
               properties:
                 username:
                   $ref: '#/components/schemas/username'
                   description: The new account’s username.
+                school_id:
+                  type: string
+                faculty:
+                  type: string
+                year_of_study:
+                  type: string
       responses:
         '200':
           description: The account was created successfully.
@@ -188,6 +195,200 @@ paths:
                     - UsernameTaken
         '500':
           $ref: '#/components/responses/unexpected'
+
+  /users/profile/:
+    get:
+      summary: List user profile data
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  year_of_study:
+                    type: string
+                  faculty:
+                    type: string
+                  school_id:
+                    type: string
+                  username:
+                    type: string
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+    put:
+      summary: Update user profile data
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                year_of_study:
+                  type: string
+                faculty:
+                  type: string
+                school_id:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: null
+                  value:
+                    type: string
+                    example: null
+        '400':
+          content:
+            application/json:
+              schema:
+                type: 'object'
+                properties:
+                  BadRequest:
+                    type: string
+
+  /users/watched/:
+    get:
+      summary: Get schools a user has watched
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: array
+                    items:
+                      type: string
+                      example: university name
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+    post:
+      summary: Add to the list of schools a user has watched
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+                example: UVIC
+
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: string
+                    example: null
+                  error:
+                    type: string
+                    example: null
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+    delete:
+      summary: Delete schools from the list a user has watched
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+                example: UVIC
+
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: string
+                    example: null
+                  error:
+                    type: string
+                    example: null
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+
+  /posts/{post_id}/:
+    get:
+      summary: Get a singular post via masked post ID.
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            id:
+              type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - sequential_id
+                  - reply_context
+                  - text
+                  - created_at
+                  - votes
+                properties:
+                  id:
+                    $ref: '#/components/schemas/masked-id'
+                  sequential_id:
+                    $ref: '#/components/schemas/masked-sequential-id'
+                  reply_context:
+                    anyOf:
+                      - type: 'null'
+                      - type: object
+                        required:
+                          - id
+                        properties:
+                          id:
+                            $ref: '#/components/schemas/masked-id'
+                  text:
+                    type: string
+                  created_at:
+                    type: string
+                  votes:
+                    $ref: '#/components/schemas/votes'
 
   /posts/:
     get:
@@ -332,7 +533,7 @@ paths:
         content:
           application/json:
             schema:
-              type: number
+              type: integer
               enum:
                 - -1
                 - 0
