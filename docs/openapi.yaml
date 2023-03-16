@@ -429,8 +429,14 @@ paths:
                             - id
                             - sequential_id
                             - reply_context
-                            - text
+                            - header_text
+                            - body_text
+                            - school_id
+                            - genre
+                            - year_of_study
+                            - faculty
                             - created_at
+                            - tags
                             - votes
                           properties:
                             id:
@@ -446,8 +452,22 @@ paths:
                                   properties:
                                     id:
                                       $ref: '#/components/schemas/masked-id'
-                            text:
+                            header_text:
                               type: string
+                            body_text:
+                              type: string
+                            school_id:
+                              type: string
+                            genre:
+                              type: string
+                            year_of_study:
+                              type: string
+                            faculty:
+                              type: string
+                            tags:
+                              type: array
+                              items:
+                                type: string
                             created_at:
                               type: string
                             votes:
@@ -456,18 +476,38 @@ paths:
     post:
       summary: Create post
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               type: object
               required:
-                - text
+                - header_text
+                - body_text
+                - genre
+                - associated_with_user
+                - school_id
               properties:
-                text:
+                header_text:
                   type: string
-                  minLength: 1
-                  maxLength: 1000
+                body_text:
+                  type: string
+                genre:
+                  type: string
+                associated_with_user:
+                  type: boolean
+                school_id:
+                  type: string
+                year_of_study:
+                  type: string
+                faculty:
+                  type: string
+                reply_context:
+                  type: object
+                  required:
+                    - id
+                  properties:
+                    id:
+                      type: string
       responses:
         '200':
           content:
