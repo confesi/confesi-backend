@@ -43,6 +43,7 @@ use mongodb::options::{
 	ReadConcernLevel,
 	UpdateOptions,
 };
+use types::SavedContent;
 
 use crate::masked_oid::MaskingKey;
 use crate::middleware::HostCheckWrap;
@@ -62,6 +63,7 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 	let sessions = db.collection::<Session>("sessions");
 	let posts = db.collection::<Post>("posts");
 	let votes = db.collection::<Vote>("votes");
+	let saved = db.collection::<SavedContent>("saved");
 
 	try_join!(
 		users.create_index(
@@ -78,6 +80,28 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 						)
 						.build()
 				)
+				.build(),
+			None,
+		),
+
+		// Create a unique index on the `content_id`-`user_id` field combination
+		// so a user can't have duplicate saved content.
+		saved.create_index(
+			IndexModel::builder()
+				.keys(doc! {"content_id": 1, "user_id": 1})
+				.options(
+					IndexOptions::builder()
+						.unique(true)
+						.build()
+				)
+				.build(),
+			None,
+		),
+
+		// Creates index so that you can sort by `saved_at`.
+		saved.create_index(
+			IndexModel::builder()
+				.keys(doc! {"saved_at": -1})
 				.build(),
 			None,
 		),
@@ -253,6 +277,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::update_profile)
 			.service(services::profile::get_profile)
 			.service(services::posts::get_single_post)
+			.service(services::saved::save_content)
+			.service(services::saved::delete_content)
+			.service(services::saved::get_content)
 			.service(services::profile::get_watched)
 			.service(services::profile::add_watched)
 			.service(services::profile::delete_watched)
