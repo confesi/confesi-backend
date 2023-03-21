@@ -21,7 +21,7 @@ use mongodb::{
 use mongodb::bson::{
 	DateTime,
 	Document,
-	doc,
+	doc, Bson,
 };
 use mongodb::error::{
 	ErrorKind,
@@ -81,7 +81,9 @@ pub enum ListQuery {
 	Recent {
 		before: Option<MaskedSequentialId>,
 	},
-	Trending,
+	Trending {
+		seen: Vec<MaskedObjectId>
+	}
 }
 
 #[derive(Deserialize)]
@@ -137,7 +139,7 @@ pub async fn get_single_post(
 pub async fn list(
 	db: web::Data<Database>,
 	masking_key: web::Data<&'static MaskingKey>,
-	query: web::Query<ListQuery>,
+	query: web::Json<ListQuery>,
 ) -> ApiResult<Box<[Detail]>, ()> {
 	let find_query;
 	let sort;
@@ -158,8 +160,22 @@ pub async fn list(
 
 			sort = doc! {"sequential_id": -1};
 		}
-		ListQuery::Trending => {
-			find_query = doc! {};
+		ListQuery::Trending { seen } => {
+			let unmasked_seen: Result<Vec<Bson>, _> = seen.iter()
+				.map(|masked_oid| {
+						masking_key.unmask(masked_oid)
+							.map_err(|_| Failure::BadRequest("bad masked id"))
+							.map(|oid| Bson::ObjectId(oid))
+				})
+				.collect();
+			let excluded_ids: Vec<Bson> = unmasked_seen?;
+		  find_query = doc! {
+				"_id": {
+						"$not": {
+								"$in": excluded_ids
+						}
+				}
+			};
 			sort = doc! {"trending_score": -1};
 		}
 	}
