@@ -256,6 +256,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::get_watched)
 			.service(services::profile::add_watched)
 			.service(services::profile::delete_watched)
+			.service(services::comments::get_comment)
+			.service(services::comments::create_comment)
 	})
 		.bind(("0.0.0.0", 3000))?
 		.run()

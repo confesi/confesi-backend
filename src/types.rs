@@ -84,6 +84,17 @@ pub struct Session {
 }
 
 #[derive(Deserialize)]
+pub struct Comment {
+	#[serde(rename = "_id")]
+	pub id: ObjectId,
+	pub owner: ObjectId,
+	pub parent_post: ObjectId,
+	pub parent_comments: Vec<ObjectId>,
+	pub text: String,
+	pub children_count: i32,
+}
+
+#[derive(Deserialize)]
 pub struct Post {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
