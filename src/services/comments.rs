@@ -3,6 +3,7 @@
 use actix_web::{
   get,
   post,
+	delete,
   web,
 };
 use futures::TryStreamExt;
@@ -41,6 +42,7 @@ pub async fn create_comment(
     "parent_post": masking_key.unmask(&request.parent_post).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?,
     "parent_comments": request.parent_comments.iter().map(|masked_oid| masking_key.unmask(masked_oid).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))).collect::<Result<Vec<_>, _>>()?,
 		"replies": 0,
+		"deleted": false,
   };
 
 	let mut session = mongo_client.start_session(None)
@@ -130,6 +132,23 @@ pub async fn create_comment(
       }
     };
   };
+}
+
+#[delete("/comments/{comment_id}/")]
+pub async fn delete_comment(
+  db: web::Data<Database>,
+  masking_key: web::Data<&'static MaskingKey>,
+	user: AuthenticatedUser,
+	comment_id: web::Path<MaskedObjectId>,
+) -> ApiResult<(), ()> {
+  match db.collection::<Comment>("comments").update_one(
+		doc! {"_id": masking_key.unmask(&comment_id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?, "owner": &user.id},
+		doc! {"$set": {"deleted": true}},
+		None,
+	).await {
+		Ok(_) => success(()), // idempotent deletion
+		Err(_) => Err(Failure::Unexpected),
+	}
 }
 
 // TODO: implement route
