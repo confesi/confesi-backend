@@ -8,10 +8,19 @@ use actix_web::{
 };
 use futures::TryStreamExt;
 use log::{error, debug};
-use mongodb::{Database, bson::{doc, Document}, options::TransactionOptions, Client as MongoClient};
-use serde::Deserialize;
+use mongodb::{Database, bson::{doc, Document, Bson}, options::{TransactionOptions, FindOptions}, Client as MongoClient};
+use serde::{Deserialize, Serialize};
 
 use crate::{masked_oid::{MaskingKey, MaskedObjectId, self}, api_types::{ApiResult, Failure, success}, to_unexpected, auth::AuthenticatedUser, services::posts::Created, conf, types::Comment};
+
+#[derive(Serialize)]
+pub struct CommentDetail {
+	pub id: MaskedObjectId,
+	pub parent_comments: Vec<MaskedObjectId>,
+	pub parent_post: MaskedObjectId,
+	pub text: String,
+	pub replies: i32,
+}
 
 #[derive(Deserialize)]
 pub struct CreateRequest {
@@ -151,13 +160,87 @@ pub async fn delete_comment(
 	}
 }
 
-// TODO: implement route
+#[derive(Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum ListQuery {
+	Root {
+		parent_post: MaskedObjectId,
+		seen: Vec<MaskedObjectId>
+	},
+	Thread {
+		parent_comment: MaskedObjectId,
+		seen: Vec<MaskedObjectId>
+	},
+}
+
 #[get("/comments/")]
 pub async fn get_comment(
   db: web::Data<Database>,
   masking_key: web::Data<&'static MaskingKey>,
-) -> ApiResult<(), ()> {
-  success(())
+	query: web::Json<ListQuery>,
+) -> ApiResult<Box<Vec<CommentDetail>>, ()> {
+	match &*query {
+		ListQuery::Root { parent_post, seen } => {
+
+			// Find comments to return
+			let unmasked_parent_post = masking_key.unmask(&parent_post)
+				.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
+			let unmasked_seen: Result<Vec<Bson>, _> = seen.iter()
+				.map(|masked_oid| {
+						masking_key.unmask(masked_oid)
+							.map_err(|_| Failure::BadRequest("bad masked id"))
+							.map(|oid| Bson::ObjectId(oid))
+				})
+				.collect();
+				let excluded_ids: Vec<Bson> = unmasked_seen?;
+				let found_comments = db.collection::<Comment>("comments")
+					.find(
+						doc! {
+							"$and": [
+								{
+									"_id": {
+										"$not": {
+											"$in": excluded_ids
+										}
+									}
+								},
+								{
+									"parent_post": unmasked_parent_post
+								},
+								{
+									"parent_comments": {
+										"$size": 0
+									}
+								}
+							]
+						},
+						FindOptions::builder()
+							.sort(doc! {}) // todo: add sort to comments (recents, top voted, etc.)
+							.limit(i64::from(conf::POSTS_PAGE_SIZE))
+							.build()
+					)
+					.await
+					.map_err(to_unexpected!("Getting comments cursor failed"))?
+					.map_ok(|comment| Ok(CommentDetail {
+						id: masking_key.mask(&comment.id),
+						parent_comments: comment
+							.parent_comments
+							.iter()
+							.map(|id| masking_key.mask(&id))
+    					.collect(),
+						parent_post: masking_key.mask(&comment.parent_post),
+						text: if comment.deleted {"[deleted]".to_string()} else {comment.text} ,
+						replies: comment.replies,
+					}))
+					.try_collect::<Vec<Result<CommentDetail, Failure<()>>>>()
+					.await
+					.map_err(to_unexpected!("Getting comments failed"))?
+					.into_iter()
+					.collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
+				return success(Box::new(found_comments));
+		},
+    ListQuery::Thread { parent_comment, seen } => todo!(),
+	};
 }
 
 

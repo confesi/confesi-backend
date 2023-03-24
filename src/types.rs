@@ -91,7 +91,7 @@ pub struct Comment {
 	pub parent_post: ObjectId,
 	pub parent_comments: Vec<ObjectId>,
 	pub text: String,
-	pub children_count: i32,
+	pub replies: i32,
 	pub deleted: bool, // specifies whether or not a comment has been deleted, without actually deleting it to prevent messing up the threaded structure
 }
 
