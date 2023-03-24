@@ -43,6 +43,7 @@ use mongodb::options::{
 	ReadConcernLevel,
 	UpdateOptions,
 };
+use types::Comment;
 
 use crate::masked_oid::MaskingKey;
 use crate::middleware::HostCheckWrap;
@@ -62,6 +63,7 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 	let sessions = db.collection::<Session>("sessions");
 	let posts = db.collection::<Post>("posts");
 	let votes = db.collection::<Vote>("votes");
+	let comments = db.collection::<Comment>("comments");
 
 	try_join!(
 		users.create_index(
@@ -96,6 +98,19 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 						.expire_after(conf::UNUSED_SESSION_TTL)
 						.build()
 				)
+				.build(),
+			None,
+		),
+
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"parent_post": -1})
+				.build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"parent_comments": -1})
 				.build(),
 			None,
 		),

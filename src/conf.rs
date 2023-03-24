@@ -17,6 +17,9 @@ pub const POST_MAX_SIZE: usize = 1000;
 /// The maximum length of a comment in UTF-8 bytes.
 pub const COMMENT_MAX_SIZE: usize = 500;
 
+/// The max depth of a comment thread.
+pub const COMMENT_MAX_DEPTH: usize = 5;
+
 /// The maximum length of a username.
 pub const USERNAME_MAX_LENGTH: usize = 32;
 
