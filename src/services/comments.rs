@@ -1,4 +1,8 @@
 // todo: do comments even need a sequential id?
+// todo: add metric fields for comments (ex: votes)
+
+use std::collections::{VecDeque, HashSet};
+use rand::Rng;
 
 use actix_web::{
   get,
@@ -13,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{masked_oid::{MaskingKey, MaskedObjectId, self}, api_types::{ApiResult, Failure, success}, to_unexpected, auth::AuthenticatedUser, services::posts::Created, conf, types::Comment};
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct CommentDetail {
 	pub id: MaskedObjectId,
 	pub parent_comments: Vec<MaskedObjectId>,
@@ -190,7 +194,7 @@ pub async fn get_comment(
         } => masking_key.unmask(parent_comment).map_err(|_| Failure::BadRequest("bad masked id"))?,
     };
 
-    let excluded_ids: Vec<Bson> = match &*query {
+    let mut excluded_ids: Vec<Bson> = match &*query {
 			ListQuery::Root { seen, .. } | ListQuery::Thread { seen, .. } => {
 					let unmasked_seen: Result<Vec<Bson>, _> = seen.iter()
 							.map(|masked_oid| {
@@ -233,7 +237,7 @@ pub async fn get_comment(
 		find_filter.push(doc! {
 			"_id": {
 					"$not": {
-							"$in": excluded_ids
+							"$in": &excluded_ids
 					}
 			}
 		});
@@ -242,7 +246,7 @@ pub async fn get_comment(
 			"$and": find_filter
 		};
 
-    let found_comments = db.collection::<Comment>("comments")
+    let mut found_comments = db.collection::<Comment>("comments")
         .find(find_filter, FindOptions::builder()
             .sort(doc! {}) // todo: add sort to comments (recents, top voted, etc.)
             .limit(i64::from(conf::COMMENTS_PAGE_SIZE))
@@ -263,6 +267,73 @@ pub async fn get_comment(
         .into_iter()
         .collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
 
+		// todo: update seen ids inbetween fetches?
+		let mut deque: VecDeque<CommentDetail> = VecDeque::from(found_comments.clone());
+		let mut count = 0;
+		while let Some(comment) = deque.pop_front() {
+			if count > conf::MAX_REPLYING_COMMENTS_PER_LOAD || comment.replies == 0 { break };
+			let replies = db.collection::<Comment>("comments")
+					.find(
+						doc! {
+							"$and": vec![
+								doc! {
+									"_id": {
+											"$not": {
+													"$in": &excluded_ids
+											}
+									}
+								},
+								doc! {
+									"$expr": {
+											"$eq": [
+													{ "$arrayElemAt": [ "$parent_comments", -1 ] },
+													masking_key.unmask(&comment.id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?
+											]
+									}
+								},
+							]
+						},
+						FindOptions::builder()
+							.sort(doc! {"replies": -1})
+							.limit(i64::from(conf::MAX_REPLYING_COMMENTS_PER_LOAD)) // todo: update this?
+							.build()
+					)
+					.await
+					.map_err(to_unexpected!("Getting comments cursor failed"))?
+					.map_ok(|comment| Ok(CommentDetail {
+							id: masking_key.mask(&comment.id),
+							parent_comments: comment.parent_comments.iter().map(|id| masking_key.mask(id)).collect(),
+							parent_post: masking_key.mask(&comment.parent_post),
+							text: if comment.deleted {"[deleted]".to_string()} else {comment.text},
+							replies: comment.replies,
+					}))
+					.try_collect::<Vec<Result<CommentDetail, Failure<()>>>>()
+					.await
+					.map_err(to_unexpected!("Getting comments failed"))?
+					.into_iter()
+					.collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
+				for comment in replies {
+					println!("COUNT: {}, RES: {}", count, p(1.0, comment.replies as f64));
+					if count < conf::MIN_REPLYING_COMMENTS_PER_LOAD_IF_AVAILABLE || rand::thread_rng().gen_bool(p(1.0, comment.replies as f64)) {
+						deque.push_back(comment.clone());
+						count += 1;
+						found_comments.push(comment.clone());
+						excluded_ids.push(Bson::ObjectId(masking_key.unmask(&comment.id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?));
+					}
+				}
+		}
+
     success(Box::new(found_comments))
 }
 
+
+fn p(numerator: f64, denominator: f64) -> f64 {
+	if denominator == 0.0 {
+		0.0
+	} else {
+		if conf::COMMENTS_PAGE_SIZE as f64 > denominator {
+			return numerator / conf::MAX_REPLYING_COMMENTS_PER_LOAD as f64
+		}
+		numerator / denominator
+	}
+}

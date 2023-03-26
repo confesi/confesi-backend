@@ -114,6 +114,12 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 				.build(),
 			None,
 		),
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"replies": -1})
+				.build(),
+			None,
+		),
 
 		posts.create_index(
 			IndexModel::builder()
