@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-
+use crate::utils::content_scoring::get_trending_score_time;
 use actix_web::{
 	get,
 	post,
@@ -59,7 +59,7 @@ pub struct ReplyContext {
 	pub id: MaskedObjectId,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Votes {
 	pub up: u32,
 	pub down: u32,
@@ -199,11 +199,6 @@ pub async fn list(
 	success(posts.into())
 }
 
-/// Gets the time-based offset of the trending score for the given timestamp.
-fn get_trending_score_time(date_time: &DateTime) -> f64 {
-	f64::from(u32::try_from(date_time.timestamp_millis() / 1000 - conf::TRENDING_EPOCH).unwrap()) / conf::TRENDING_DECAY
-}
-
 #[post("/posts/")]
 pub async fn create(
 	db: web::Data<Database>,
@@ -308,9 +303,9 @@ pub async fn vote(
 				.map_err(to_unexpected!("Aborting vote transaction failed"))?;
 		}
 
-		let existing_vote = db.collection::<Vote>("votes").find_one_with_session(
+		let existing_vote = db.collection::<Vote>("post_votes").find_one_with_session(
 			doc! {
-				"post": {"$eq": post_id},
+				"content": {"$eq": post_id},
 				"user": {"$eq": user.id},
 			},
 			None,
@@ -327,9 +322,9 @@ pub async fn vote(
 		match existing_vote {
 			None => {
 				match
-					db.collection::<Vote>("votes").insert_one_with_session(
+					db.collection::<Vote>("post_votes").insert_one_with_session(
 						Vote {
-							post: post_id,
+							content: post_id,
 							user: user.id,
 							value: *request,
 						},
@@ -346,9 +341,9 @@ pub async fn vote(
 			}
 			Some(existing_vote) => {
 				match
-					db.collection::<Vote>("votes").update_one_with_session(
+					db.collection::<Vote>("post_votes").update_one_with_session(
 						doc! {
-							"post": {"$eq": post_id},
+							"content": {"$eq": post_id},
 							"user": {"$eq": user.id},
 							"value": {"$eq": existing_vote},
 						},

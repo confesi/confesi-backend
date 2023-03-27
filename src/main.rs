@@ -8,6 +8,7 @@ mod masked_oid;
 mod middleware;
 mod services;
 mod types;
+mod utils;
 
 use std::env;
 use std::error::Error;
@@ -62,7 +63,8 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 	let users = db.collection::<User>("users");
 	let sessions = db.collection::<Session>("sessions");
 	let posts = db.collection::<Post>("posts");
-	let votes = db.collection::<Vote>("votes");
+	let post_votes = db.collection::<Vote>("post_votes");
+	let comment_votes = db.collection::<Vote>("comment_votes");
 	let comments = db.collection::<Comment>("comments");
 
 	try_join!(
@@ -117,6 +119,12 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 		comments.create_index(
 			IndexModel::builder()
 				.keys(doc! {"replies": -1})
+				.build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"sequential_id": -1})
 				.build(),
 			None,
 		),
@@ -187,9 +195,20 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 			Ok(())
 		},
 
-		votes.create_index(
+		post_votes.create_index(
 			IndexModel::builder()
-				.keys(doc! {"post": 1, "user": 1})
+				.keys(doc! {"content": 1, "user": 1})
+				.options(
+					IndexOptions::builder()
+						.unique(true)
+						.build()
+				)
+				.build(),
+			None,
+		),
+		comment_votes.create_index(
+			IndexModel::builder()
+				.keys(doc! {"content": 1, "user": 1})
 				.options(
 					IndexOptions::builder()
 						.unique(true)
@@ -280,6 +299,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::comments::get_comment)
 			.service(services::comments::create_comment)
 			.service(services::comments::delete_comment)
+			.service(services::comments::vote_on_comment)
 	})
 		.bind(("0.0.0.0", 3000))?
 		.run()

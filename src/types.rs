@@ -93,6 +93,10 @@ pub struct Comment {
 	pub text: String,
 	pub replies: i32,
 	pub deleted: bool, // specifies whether or not a comment has been deleted, without actually deleting it to prevent messing up the threaded structure
+	pub votes_up: i32,
+	pub votes_down: i32,
+	pub absolute_score: i32,
+	pub trending_score: f64,
 }
 
 #[derive(Deserialize)]
@@ -147,7 +151,7 @@ pub struct School {
 
 #[derive(Deserialize, Serialize)]
 pub struct Vote {
-	pub post: ObjectId,
+	pub content: ObjectId,
 	pub user: ObjectId,
 	pub value: i32,
 }
