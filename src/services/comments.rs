@@ -1,7 +1,7 @@
-// todo: do comments even need a sequential id?
+// todo: do comments even need a sequential id? use it to sort by for recents?
 // todo: add metric fields for comments (ex: votes)
 
-use std::collections::{VecDeque, HashMap, HashSet};
+use std::collections::{VecDeque, HashMap};
 use rand::Rng;
 
 use actix_web::{
@@ -12,7 +12,7 @@ use actix_web::{
 };
 use futures::TryStreamExt;
 use log::{error, debug};
-use mongodb::{Database, bson::{doc, Document, Bson, oid::ObjectId}, options::{TransactionOptions, FindOptions}, Client as MongoClient};
+use mongodb::{Database, bson::{doc, Document, Bson}, options::{TransactionOptions, FindOptions}, Client as MongoClient};
 use serde::{Deserialize, Serialize};
 
 use crate::{masked_oid::{MaskingKey, MaskedObjectId, self}, api_types::{ApiResult, Failure, success}, to_unexpected, auth::AuthenticatedUser, services::posts::Created, conf, types::Comment};
@@ -69,7 +69,6 @@ pub async fn create_comment(
 
   let mut attempt = 0;
   'lp: loop {
-		debug!("LOOPED");
     attempt += 1;
     if attempt > 8 {
       error!("Too many comment creation attempts");
@@ -269,7 +268,10 @@ pub async fn get_comment(
         .into_iter()
         .collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
 
-		println!("FOUND COMMENTS: {}", found_comments.len());
+		let init_depth: i32;
+		if found_comments.len() == 0 { return success(Box::new(vec![])) } else {
+			init_depth = found_comments[0].parent_comments.len() as i32;
+		}
 
 		let mut deque: VecDeque<CommentDetail> = VecDeque::from(found_comments.clone());
 		let mut count = 0;
@@ -318,22 +320,19 @@ pub async fn get_comment(
 					.into_iter()
 					.collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
 				for comment in replies {
-					println!("REPLY FOUND!");
 					if count < conf::MIN_REPLYING_COMMENTS_PER_LOAD_IF_AVAILABLE || rand::thread_rng().gen_bool(p(1.0, parent_comment.replies as f64)) {
 						count += 1;
 						excluded_ids.push(Bson::ObjectId(masking_key.unmask(&comment.id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?));
-						println!("PUSHED BACK {}", &comment.text);
 						deque.push_back(comment.clone());
 						found_comments.push(comment.clone());
 					}
 				}
 		}
 
-		println!("OVERALL: {}", found_comments.len());
-    success(Box::new(thread_comments(found_comments)))
+    success(Box::new(thread_comments(found_comments, init_depth)))
 }
 
-fn thread_comments(comments: Vec<CommentDetail>) -> Vec<CommentDetail> {
+fn thread_comments(comments: Vec<CommentDetail>, init_depth: i32) -> Vec<CommentDetail> {
 	let mut comment_map: HashMap<String, CommentDetail> = HashMap::new();
 
 	// first pass: Create comment map and add each comment to the map
@@ -344,10 +343,10 @@ fn thread_comments(comments: Vec<CommentDetail>) -> Vec<CommentDetail> {
 	// second pass: Thread each top-level comment and its children recursively
 	let mut threaded_comments: Vec<CommentDetail> = vec![];
 	for comment in comment_map.clone().values() {
-			if comment.parent_comments.is_empty() {
-					let threaded_comment = thread_comment(0, comment, &mut comment_map);
-					threaded_comments.push(threaded_comment);
-			}
+		if comment.parent_comments.len() == (init_depth) as usize {
+				let threaded_comment = thread_comment((init_depth as u32), comment, &mut comment_map);
+				threaded_comments.push(threaded_comment);
+		}
 	}
 	threaded_comments
 }
@@ -369,7 +368,7 @@ fn p(numerator: f64, denominator: f64) -> f64 {
 	if denominator == 0.0 {
 		0.0
 	} else {
-		if conf::MAX_REPLYING_COMMENTS_PER_LOAD as f64 > denominator {
+		if denominator > conf::MAX_REPLYING_COMMENTS_PER_LOAD as f64 {
 			return numerator / conf::MAX_REPLYING_COMMENTS_PER_LOAD as f64
 		}
 		numerator / denominator
