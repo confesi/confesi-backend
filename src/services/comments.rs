@@ -1,7 +1,7 @@
 // todo: do comments even need a sequential id?
 // todo: add metric fields for comments (ex: votes)
 
-use std::collections::{VecDeque, HashSet};
+use std::collections::{VecDeque, HashMap, HashSet};
 use rand::Rng;
 
 use actix_web::{
@@ -17,13 +17,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{masked_oid::{MaskingKey, MaskedObjectId, self}, api_types::{ApiResult, Failure, success}, to_unexpected, auth::AuthenticatedUser, services::posts::Created, conf, types::Comment};
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 pub struct CommentDetail {
 	pub id: MaskedObjectId,
 	pub parent_comments: Vec<MaskedObjectId>,
 	pub parent_post: MaskedObjectId,
 	pub text: String,
 	pub replies: i32,
+	pub children: Vec<CommentDetail>,
 }
 
 #[derive(Deserialize)]
@@ -260,6 +261,7 @@ pub async fn get_comment(
             parent_post: masking_key.mask(&comment.parent_post),
             text: if comment.deleted {"[deleted]".to_string()} else {comment.text},
             replies: comment.replies,
+						children: vec![],
         }))
         .try_collect::<Vec<Result<CommentDetail, Failure<()>>>>()
         .await
@@ -267,11 +269,13 @@ pub async fn get_comment(
         .into_iter()
         .collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
 
-		// todo: update seen ids inbetween fetches?
+		println!("FOUND COMMENTS: {}", found_comments.len());
+
 		let mut deque: VecDeque<CommentDetail> = VecDeque::from(found_comments.clone());
 		let mut count = 0;
-		while let Some(comment) = deque.pop_front() {
-			if count > conf::MAX_REPLYING_COMMENTS_PER_LOAD || comment.replies == 0 { break };
+		while let Some(parent_comment) = deque.pop_front() {
+			if count > conf::MAX_REPLYING_COMMENTS_PER_LOAD { break };
+			if parent_comment.replies == 0 { continue };
 			let replies = db.collection::<Comment>("comments")
 					.find(
 						doc! {
@@ -287,7 +291,7 @@ pub async fn get_comment(
 									"$expr": {
 											"$eq": [
 													{ "$arrayElemAt": [ "$parent_comments", -1 ] },
-													masking_key.unmask(&comment.id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?
+													masking_key.unmask(&parent_comment.id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?
 											]
 									}
 								},
@@ -306,6 +310,7 @@ pub async fn get_comment(
 							parent_post: masking_key.mask(&comment.parent_post),
 							text: if comment.deleted {"[deleted]".to_string()} else {comment.text},
 							replies: comment.replies,
+							children: vec![],
 					}))
 					.try_collect::<Vec<Result<CommentDetail, Failure<()>>>>()
 					.await
@@ -313,17 +318,50 @@ pub async fn get_comment(
 					.into_iter()
 					.collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
 				for comment in replies {
-					println!("COUNT: {}, RES: {}", count, p(1.0, comment.replies as f64));
-					if count < conf::MIN_REPLYING_COMMENTS_PER_LOAD_IF_AVAILABLE || rand::thread_rng().gen_bool(p(1.0, comment.replies as f64)) {
-						deque.push_back(comment.clone());
+					println!("REPLY FOUND!");
+					if count < conf::MIN_REPLYING_COMMENTS_PER_LOAD_IF_AVAILABLE || rand::thread_rng().gen_bool(p(1.0, parent_comment.replies as f64)) {
 						count += 1;
-						found_comments.push(comment.clone());
 						excluded_ids.push(Bson::ObjectId(masking_key.unmask(&comment.id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?));
+						println!("PUSHED BACK {}", &comment.text);
+						deque.push_back(comment.clone());
+						found_comments.push(comment.clone());
 					}
 				}
 		}
 
-    success(Box::new(found_comments))
+		println!("OVERALL: {}", found_comments.len());
+    success(Box::new(thread_comments(found_comments)))
+}
+
+fn thread_comments(comments: Vec<CommentDetail>) -> Vec<CommentDetail> {
+	let mut comment_map: HashMap<String, CommentDetail> = HashMap::new();
+
+	// first pass: Create comment map and add each comment to the map
+	for comment in comments {
+			comment_map.insert(comment.id.to_string(), comment);
+	}
+
+	// second pass: Thread each top-level comment and its children recursively
+	let mut threaded_comments: Vec<CommentDetail> = vec![];
+	for comment in comment_map.clone().values() {
+			if comment.parent_comments.is_empty() {
+					let threaded_comment = thread_comment(0, comment, &mut comment_map);
+					threaded_comments.push(threaded_comment);
+			}
+	}
+	threaded_comments
+}
+
+fn thread_comment(depth: u32, comment: &CommentDetail, comment_map: &mut HashMap<String, CommentDetail>) -> CommentDetail {
+	let mut threaded_comment = comment.clone();
+	for c in comment_map.clone().values() {
+			if c.parent_comments.contains(&comment.id) && c.parent_comments.len() <= (depth + 1).try_into().unwrap() {
+					let threaded_child = thread_comment(depth + 1, c, comment_map);
+					threaded_comment.children.push(threaded_child);
+			}
+	}
+	comment_map.remove(&threaded_comment.id.to_string());
+	threaded_comment
 }
 
 
@@ -331,7 +369,7 @@ fn p(numerator: f64, denominator: f64) -> f64 {
 	if denominator == 0.0 {
 		0.0
 	} else {
-		if conf::COMMENTS_PAGE_SIZE as f64 > denominator {
+		if conf::MAX_REPLYING_COMMENTS_PER_LOAD as f64 > denominator {
 			return numerator / conf::MAX_REPLYING_COMMENTS_PER_LOAD as f64
 		}
 		numerator / denominator
