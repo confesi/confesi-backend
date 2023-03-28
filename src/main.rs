@@ -104,6 +104,7 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 			None,
 		),
 
+		// Is this too many indices? Probably...
 		comments.create_index(
 			IndexModel::builder()
 				.keys(doc! {"parent_post": -1})
@@ -125,6 +126,24 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 		comments.create_index(
 			IndexModel::builder()
 				.keys(doc! {"sequential_id": -1})
+				.build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"absolute_score": -1})
+				.build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"absolute_score": 1})
+				.build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"trending_score": -1})
 				.build(),
 			None,
 		),

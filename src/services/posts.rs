@@ -73,6 +73,7 @@ pub struct Detail {
 	pub text: String,
 	pub created_at: String,
 	pub votes: Votes,
+	pub replies: i32,
 }
 
 #[derive(Deserialize)]
@@ -130,6 +131,7 @@ pub async fn get_single_post(
 			up: u32::try_from(post.votes_up).unwrap(),
 			down: u32::try_from(post.votes_down).unwrap(),
 		},
+		replies: post.replies,
 	}))
 }
 
@@ -189,6 +191,7 @@ pub async fn list(
 					up: u32::try_from(post.votes_up).unwrap(),
 					down: u32::try_from(post.votes_down).unwrap(),
 				},
+				replies: post.replies,
 			}))
 			.try_collect::<Vec<Result<Detail, Failure<()>>>>()
 			.await
@@ -217,6 +220,7 @@ pub async fn create(
 		"votes_down": 0,
 		"absolute_score": 0,
 		"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
+		"replies": 0,
 	};
 	let mut attempt = 0;
 	let insertion = loop {

@@ -110,6 +110,7 @@ pub struct Post {
 	pub votes_down: i32,
 	pub absolute_score: i32,
 	pub trending_score: f64,
+	pub replies: i32,
 }
 
  /// The various years of study the creator of a post can be.

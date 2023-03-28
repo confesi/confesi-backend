@@ -1,13 +1,3 @@
-// todo: do comments even need a sequential id? use it to sort by for recents?
-// todo: add metric fields for comments (ex: votes)
-
-// todo: vote on comment route
-// todo: add vote/trending/absolute fields to comments
-// todo: add sorting to comments based on said above fields
-// todo: update `commentdetail` with new fields
-// todo: add a comment count to posts
-// todo: too many indices?
-
 use std::collections::{VecDeque, HashMap};
 use rand::Rng;
 
@@ -20,10 +10,10 @@ use actix_web::{
 };
 use futures::TryStreamExt;
 use log::{error, debug};
-use mongodb::{Database, bson::{doc, Document, Bson, DateTime}, options::{TransactionOptions, FindOptions, FindOneOptions}, Client as MongoClient};
+use mongodb::{Database, bson::{doc, Document, Bson, DateTime, self}, options::{TransactionOptions, FindOptions, FindOneOptions}, Client as MongoClient};
 use serde::{Deserialize, Serialize};
 
-use crate::{masked_oid::{MaskingKey, MaskedObjectId, self}, api_types::{ApiResult, Failure, success}, to_unexpected, auth::AuthenticatedUser, services::posts::{Created, Votes}, conf, types::{Comment, Vote}, utils::content_scoring::get_trending_score_time};
+use crate::{masked_oid::{MaskingKey, MaskedObjectId, self}, api_types::{ApiResult, Failure, success}, to_unexpected, auth::AuthenticatedUser, services::posts::{Created, Votes}, conf, types::{Comment, Vote, Post}, utils::content_scoring::get_trending_score_time};
 
 #[derive(Serialize, Clone)]
 pub struct CommentDetail {
@@ -271,11 +261,11 @@ pub async fn create_comment(
 		return Err(Failure::Unexpected);
 		}
 
-			if attempt > 1 {
-				session.abort_transaction()
-					.await
-					.map_err(to_unexpected!("Aborting vote transaction failed"))?;
-			}
+		if attempt > 1 {
+			session.abort_transaction()
+				.await
+				.map_err(to_unexpected!("Aborting vote transaction failed"))?;
+		}
 
 		let last_sequential_id =
 		db.collection::<Comment>("comments")
@@ -298,10 +288,10 @@ pub async fn create_comment(
 		insert_doc.insert("sequential_id", new_sequential_id);
 
 		session.start_transaction(transaction_options.clone())
-		.await
-		.map_err(to_unexpected!("Starting transaction failed"))?;
+			.await
+			.map_err(to_unexpected!("Starting transaction failed"))?;
 
-		// execute atomic increment of parent comment (if array of parent comments is not empty)
+		// execute atomic increment of parent comment reply counter (if array of parent comments is not empty)
 		if request.parent_comments.len() > 0 {
 		let direct_parent_id = masking_key.unmask(&request.parent_comments.last().unwrap()).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
 		match db.collection::<Comment>("comments")
@@ -320,6 +310,25 @@ pub async fn create_comment(
 							continue 'lp;
 						},
 			}
+		}
+
+		// execute atomic increment of parent post reply counter
+		let parent_post_id = masking_key.unmask(&request.parent_post).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
+		match db.collection::<Post>("posts")
+			.update_one_with_session(
+			doc! {"_id": parent_post_id},
+			doc! {"$inc": {"replies": 1}},
+			None,
+			&mut session
+			).await {
+			Ok(update_result) => if update_result.modified_count != 1 {
+							error!("updating comment parent post failed");
+							return Err(Failure::BadRequest("comment parent post doesn't exist"));
+						}
+			Err(_) => {
+							error!("updating comment parent post failed");
+							continue 'lp;
+						},
 			}
 
 		// inserting the comment
@@ -360,16 +369,55 @@ pub async fn delete_comment(
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case")]
-pub enum ListQuery {
-	Root {
-		parent_post: MaskedObjectId,
-		seen: Vec<MaskedObjectId>
-	},
-	Thread {
-		parent_comment: MaskedObjectId,
-		seen: Vec<MaskedObjectId>
-	},
+#[serde(rename_all = "snake_case")]
+enum CommentFetchType {
+    Root,
+		Thread,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum CommentSort {
+		New, // sequential_id
+		Top, // absolute_score
+		Worst, // absolute_score
+		Controversial, // absoluted absolute_score (closest absolute_score to -1)
+		Best, // trending_score
+		Replies, // most number of replies
+}
+
+impl CommentSort {
+		fn sort(&self) -> Vec<Document> {
+				match self {
+						CommentSort::New => vec![doc! {"sequential_id": -1}],
+						CommentSort::Top => vec![doc! {"absolute_score": -1}],
+						CommentSort::Worst => vec![doc! {"absolute_score": 1}],
+						CommentSort::Controversial => vec![
+							doc! {
+								"$addFields": {
+										"score_diff": {
+												"$abs": {
+														"$subtract": ["$absolute_score", -1]
+												}
+										}
+								}
+							},
+							doc! {
+									"$sort": { "score_diff": 1 }
+							},
+						],
+						CommentSort::Best => vec![doc! {"trending_score": -1}],
+						CommentSort::Replies => vec![doc! {"replies": -1}],
+				}
+		}
+}
+
+#[derive(Deserialize)]
+pub struct ListQuery {
+		kind: CommentFetchType,
+		parent: MaskedObjectId,
+		seen: Vec<MaskedObjectId>,
+		sort: CommentSort,
 }
 
 #[get("/comments/")]
@@ -378,32 +426,20 @@ pub async fn get_comment(
     masking_key: web::Data<&'static MaskingKey>,
     query: web::Json<ListQuery>,
 ) -> ApiResult<Box<Vec<CommentDetail>>, ()> {
-    let id = match &*query {
-        ListQuery::Root {
-            parent_post,
-            ..
-        } => masking_key.unmask(parent_post).map_err(|_| Failure::BadRequest("bad masked id"))?,
-        ListQuery::Thread {
-            parent_comment,
-            ..
-        } => masking_key.unmask(parent_comment).map_err(|_| Failure::BadRequest("bad masked id"))?,
-    };
 
-    let mut excluded_ids: Vec<Bson> = match &*query {
-			ListQuery::Root { seen, .. } | ListQuery::Thread { seen, .. } => {
-					let unmasked_seen: Result<Vec<Bson>, _> = seen.iter()
-							.map(|masked_oid| {
-									masking_key.unmask(masked_oid)
-											.map_err(|_| Failure::BadRequest("bad masked id"))
-											.map(|oid| Bson::ObjectId(oid))
-							})
-							.collect();
-					unmasked_seen?
-			}
-		};
+		let id  = masking_key.unmask(&query.parent).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
 
-		let mut find_filter = match &*query {
-			ListQuery::Root { .. } => {
+		let unmasked_seen: Result<Vec<Bson>, _> = query.seen.iter()
+				.map(|masked_oid| {
+						masking_key.unmask(masked_oid)
+								.map_err(|_| Failure::BadRequest("bad masked id"))
+								.map(|oid| Bson::ObjectId(oid))
+				})
+				.collect();
+		let mut excluded_ids = unmasked_seen?;
+
+		let mut find_filter = match &query.kind {
+			CommentFetchType::Root { .. } => {
 				vec![
 					doc! {
 						"parent_post": id,
@@ -415,7 +451,7 @@ pub async fn get_comment(
 					}
 				]
 			},
-			ListQuery::Thread { .. } => {
+			CommentFetchType::Thread { .. } => {
 				vec![
 					doc! {
 						"$expr": {
@@ -441,66 +477,46 @@ pub async fn get_comment(
 			"$and": find_filter
 		};
 
-    let mut found_comments = db.collection::<Comment>("comments")
-        .find(find_filter, FindOptions::builder()
-            .sort(doc! {}) // todo: add sort to comments (recents, top voted, etc.)
-            .limit(i64::from(conf::COMMENTS_PAGE_SIZE))
-            .build()
-        )
-        .await
-        .map_err(to_unexpected!("Getting comments cursor failed"))?
-        .map_ok(|comment| Ok(CommentDetail {
-            id: masking_key.mask(&comment.id),
-            parent_comments: comment.parent_comments.iter().map(|id| masking_key.mask(id)).collect(),
-            parent_post: masking_key.mask(&comment.parent_post),
-            text: if comment.deleted {"[deleted]".to_string()} else {comment.text},
-            replies: comment.replies,
-						children: vec![],
-						votes: Votes {
-							up: u32::try_from(comment.votes_up).unwrap(),
-							down: u32::try_from(comment.votes_down).unwrap(),
-						},
-        }))
-        .try_collect::<Vec<Result<CommentDetail, Failure<()>>>>()
-        .await
-        .map_err(to_unexpected!("Getting comments failed"))?
-        .into_iter()
-        .collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
-
-		let init_depth: i32;
-		if found_comments.len() == 0 { return success(Box::new(vec![])) } else {
-			init_depth = found_comments[0].parent_comments.len() as i32;
-		}
-
-		let mut deque: VecDeque<CommentDetail> = VecDeque::from(found_comments.clone());
-		let mut count = 0;
-		while let Some(parent_comment) = deque.pop_front() {
-			if count > conf::MAX_REPLYING_COMMENTS_PER_LOAD { break };
-			if parent_comment.replies == 0 { continue };
-			let replies = db.collection::<Comment>("comments")
-					.find(
-						doc! {
-							"$and": vec![
-								doc! {
-									"_id": {
-											"$not": {
-													"$in": &excluded_ids
-											}
-									}
-								},
-								doc! {
-									"$expr": {
-											"$eq": [
-													{ "$arrayElemAt": [ "$parent_comments", -1 ] },
-													masking_key.unmask(&parent_comment.id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?
-											]
-									}
-								},
-							]
-						},
-						FindOptions::builder()
-							.sort(doc! {"replies": -1})
-							.limit(i64::from(conf::MAX_REPLYING_COMMENTS_PER_LOAD)) // todo: update this?
+		let mut found_comments;
+    if let CommentSort::Controversial = query.sort {
+			// populate found_comments based on the same filters, but also sort by the absolute value of absolute_score and find those comments closest to it
+			// use the aggregation framework to do this
+			let mut pipeline = vec![
+				doc! {
+					"$match": find_filter
+				},
+				doc! {
+						"$limit": i64::from(conf::COMMENTS_PAGE_SIZE)
+				},
+			];
+			pipeline.splice(1..1, query.sort.sort());
+			found_comments = db.collection::<Comment>("comments")
+					.aggregate(pipeline, None)
+					.await
+					.map_err(to_unexpected!("Getting comments failed"))?
+					.map_ok(|doc| bson::from_bson(bson::Bson::Document(doc)).map_err(to_unexpected!("Deserializing comment failed")))
+					.try_collect::<Vec<Result<Comment, Failure<()>>>>()
+					.await
+					.map_err(to_unexpected!("Getting comments failed"))?
+					.into_iter()
+					.map(|result| result.and_then(|comment| Ok(CommentDetail {
+							id: masking_key.mask(&comment.id),
+							parent_comments: comment.parent_comments.iter().map(|id| masking_key.mask(id)).collect(),
+							parent_post: masking_key.mask(&comment.parent_post),
+							text: if comment.deleted {"[deleted]".to_string()} else {comment.text},
+							replies: comment.replies,
+							children: vec![],
+							votes: Votes {
+									up: u32::try_from(comment.votes_up).unwrap(),
+									down: u32::try_from(comment.votes_down).unwrap(),
+							},
+					})))
+					.collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
+		} else {
+			found_comments = db.collection::<Comment>("comments")
+					.find(find_filter, FindOptions::builder()
+							.sort(query.sort.sort()[0].clone())
+							.limit(i64::from(conf::COMMENTS_PAGE_SIZE))
 							.build()
 					)
 					.await
@@ -522,59 +538,124 @@ pub async fn get_comment(
 					.map_err(to_unexpected!("Getting comments failed"))?
 					.into_iter()
 					.collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
+		}
+
+		let init_depth: i32;
+		if found_comments.len() == 0 { return success(Box::new(vec![])) } else {
+			init_depth = found_comments[0].parent_comments.len() as i32;
+		}
+
+		let mut deque: VecDeque<CommentDetail> = VecDeque::from(found_comments.clone());
+		let mut count = 0;
+		while let Some(parent_comment) = deque.pop_front() {
+			if count > conf::MAX_REPLYING_COMMENTS_PER_LOAD { break };
+			if parent_comment.replies == 0 { continue };
+			let replies = db.collection::<Comment>("comments")
+					.find(
+							doc! {
+								"$and": vec![
+									doc! {
+										"_id": {
+												"$not": {
+														"$in": &excluded_ids
+												}
+										}
+									},
+									doc! {
+										"$expr": {
+												"$eq": [
+														{ "$arrayElemAt": [ "$parent_comments", -1 ] },
+														masking_key.unmask(&parent_comment.id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?
+												]
+										}
+									},
+								]
+							},
+							FindOptions::builder()
+							    .sort(doc! {"replies": -1}) // sort threaded comments by replies to help build the best tree structures
+									.limit(i64::from(conf::MAX_REPLYING_COMMENTS_PER_LOAD))
+									.build()
+					)
+					.await
+					.map_err(to_unexpected!("Getting comments cursor failed"))?
+					.map_ok(|comment| Ok(CommentDetail {
+							id: masking_key.mask(&comment.id),
+							parent_comments: comment.parent_comments.iter().map(|id| masking_key.mask(id)).collect(),
+							parent_post: masking_key.mask(&comment.parent_post),
+							text: if comment.deleted {"[deleted]".to_string()} else {comment.text},
+							replies: comment.replies,
+							children: vec![],
+							votes: Votes {
+								up: u32::try_from(comment.votes_up).unwrap(),
+								down: u32::try_from(comment.votes_down).unwrap(),
+							},
+					}))
+					.try_collect::<Vec<Result<CommentDetail, Failure<()>>>>()
+					.await
+					.map_err(to_unexpected!("Getting comments failed"))?
+					.into_iter()
+					.collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
 				for comment in replies {
-					if count < conf::MIN_REPLYING_COMMENTS_PER_LOAD_IF_AVAILABLE || rand::thread_rng().gen_bool(p(1.0, parent_comment.replies as f64)) {
-						count += 1;
-						excluded_ids.push(Bson::ObjectId(masking_key.unmask(&comment.id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?));
-						deque.push_back(comment.clone());
-						found_comments.push(comment.clone());
-					}
+						if count < conf::MIN_REPLYING_COMMENTS_PER_LOAD_IF_AVAILABLE || rand::thread_rng().gen_bool(p(1.0, parent_comment.replies as f64)) {
+								count += 1;
+								excluded_ids.push(Bson::ObjectId(masking_key.unmask(&comment.id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?));
+								deque.push_back(comment.clone());
+								found_comments.push(comment.clone());
+						}
 				}
 		}
 
-    success(Box::new(thread_comments(found_comments, init_depth)))
+		let threaded_comments = thread_comments(found_comments.clone(), init_depth);
+
+		let results: Vec<CommentDetail> = found_comments
+		    .iter()
+				.filter(|c| c.parent_comments.len() == init_depth as usize && threaded_comments.iter().any(|tc| tc.id == c.id))
+				.filter_map(|c| threaded_comments.iter().find(|tc| tc.id == c.id).cloned())
+				.collect();
+
+    success(Box::new(results))
 }
 
 fn thread_comments(comments: Vec<CommentDetail>, init_depth: i32) -> Vec<CommentDetail> {
-	let mut comment_map: HashMap<String, CommentDetail> = HashMap::new();
+		let mut comment_map: HashMap<String, CommentDetail> = HashMap::new();
 
-	// first pass: Create comment map and add each comment to the map
-	for comment in comments {
-			comment_map.insert(comment.id.to_string(), comment);
-	}
-
-	// second pass: Thread each top-level comment and its children recursively
-	let mut threaded_comments: Vec<CommentDetail> = vec![];
-	for comment in comment_map.clone().values() {
-		if comment.parent_comments.len() == (init_depth) as usize {
-				let threaded_comment = thread_comment((init_depth as u32), comment, &mut comment_map);
-				threaded_comments.push(threaded_comment);
+		// first pass: create comment map and add each comment to the map
+		for comment in comments {
+				comment_map.insert(comment.id.to_string(), comment);
 		}
-	}
-	threaded_comments
+
+		// second pass: thread each top-level comment and its children recursively
+		let mut threaded_comments: Vec<CommentDetail> = vec![];
+		for comment in comment_map.clone().values() {
+				if comment.parent_comments.len() == (init_depth) as usize {
+						let threaded_comment = thread_comment((init_depth as u32), comment, &mut comment_map);
+						threaded_comments.push(threaded_comment);
+				}
+		}
+		threaded_comments
 }
 
 fn thread_comment(depth: u32, comment: &CommentDetail, comment_map: &mut HashMap<String, CommentDetail>) -> CommentDetail {
-	let mut threaded_comment = comment.clone();
-	for c in comment_map.clone().values() {
-			if c.parent_comments.contains(&comment.id) && c.parent_comments.len() <= (depth + 1).try_into().unwrap() {
-					let threaded_child = thread_comment(depth + 1, c, comment_map);
-					threaded_comment.children.push(threaded_child);
-			}
-	}
-	comment_map.remove(&threaded_comment.id.to_string());
-	threaded_comment
+		let mut threaded_comment = comment.clone();
+		for c in comment_map.clone().values() {
+				if c.parent_comments.contains(&comment.id) && c.parent_comments.len() <= (depth + 1).try_into().unwrap() {
+						let threaded_child = thread_comment(depth + 1, c, comment_map);
+						threaded_comment.children.push(threaded_child);
+				}
+		}
+		comment_map.remove(&threaded_comment.id.to_string());
+		threaded_comment
 }
 
 
 fn p(numerator: f64, denominator: f64) -> f64 {
-	if denominator == 0.0 {
-		0.0
-	} else {
-		if denominator > conf::MAX_REPLYING_COMMENTS_PER_LOAD as f64 {
-			return numerator / conf::MAX_REPLYING_COMMENTS_PER_LOAD as f64
+		if denominator == 0.0 {
+				0.0
+		} else {
+				if denominator > conf::MAX_REPLYING_COMMENTS_PER_LOAD as f64 {
+						return numerator / conf::MAX_REPLYING_COMMENTS_PER_LOAD as f64
+				}
+				numerator / denominator
 		}
-		numerator / denominator
-	}
 }
 
