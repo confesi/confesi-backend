@@ -541,3 +541,43 @@ paths:
                       - type: 'null'
                       - type: number
                         minimum: 0
+  /comments/{comment_id}/:
+    delete:
+      summary: Delete a comment
+      parameters:
+        - name: comment_id
+          in: path
+          required: true
+          schema:
+            id:
+              type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                  - value
+                properties:
+                  error:
+                    type: string
+                    example: null
+                  value:
+                    type: string
+                    example: null
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - BadRequest
+                properties:
+                  BadRequest:
+                    type: string
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'

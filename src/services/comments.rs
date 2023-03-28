@@ -355,8 +355,8 @@ pub async fn create_comment(
 pub async fn delete_comment(
   	db: web::Data<Database>,
   	masking_key: web::Data<&'static MaskingKey>,
-	user: AuthenticatedUser,
-	comment_id: web::Path<MaskedObjectId>,
+		user: AuthenticatedUser,
+		comment_id: web::Path<MaskedObjectId>,
 ) -> ApiResult<(), ()> {
 	match db.collection::<Comment>("comments").update_one(
 			doc! {"_id": masking_key.unmask(&comment_id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?, "owner": &user.id},
@@ -381,7 +381,7 @@ enum CommentSort {
 		New, // sequential_id
 		Top, // absolute_score
 		Worst, // absolute_score
-		Controversial, // absoluted absolute_score (closest absolute_score to -1)
+		Controversial, // absoluted absolute_score (closest absolute_score to 0), if there's a tie, rank the one with most total votes highest
 		Best, // trending_score
 		Replies, // most number of replies
 }
@@ -394,16 +394,19 @@ impl CommentSort {
 						CommentSort::Worst => vec![doc! {"absolute_score": 1}],
 						CommentSort::Controversial => vec![
 							doc! {
-								"$addFields": {
-										"score_diff": {
-												"$abs": {
-														"$subtract": ["$absolute_score", -1]
-												}
-										}
-								}
+									"$addFields": {
+											"score_diff": {
+													"$abs": {
+															"$subtract": ["$absolute_score", 0]
+													}
+											},
+											"total_votes": {
+													"$add": ["$votes_up", "$votes_down"]
+											}
+									}
 							},
 							doc! {
-									"$sort": { "score_diff": 1 }
+									"$sort": { "score_diff": 1, "total_votes": -1 }
 							},
 						],
 						CommentSort::Best => vec![doc! {"trending_score": -1}],
@@ -658,4 +661,3 @@ fn p(numerator: f64, denominator: f64) -> f64 {
 				numerator / denominator
 		}
 }
-

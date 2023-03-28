@@ -131,6 +131,12 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 		),
 		comments.create_index(
 			IndexModel::builder()
+					.keys(doc! {"votes_up": -1, "votes_down": -1})
+					.build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder()
 				.keys(doc! {"absolute_score": -1})
 				.build(),
 			None,
