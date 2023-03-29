@@ -27,10 +27,14 @@ components:
       type: object
       required:
         - error
+        - value
       properties:
         error:
           type: 'null'
-      example: {error: null}
+          example: null
+        value:
+            type: 'null'
+            example: null
     username:
       type: string
       minLength: 1
@@ -369,6 +373,7 @@ paths:
                   - text
                   - created_at
                   - votes
+                  - replies
                 properties:
                   id:
                     $ref: '#/components/schemas/masked-id'
@@ -387,6 +392,8 @@ paths:
                     type: string
                   created_at:
                     type: string
+                  replies:
+                    type: integer
                   votes:
                     $ref: '#/components/schemas/votes'
 
@@ -431,6 +438,7 @@ paths:
                             - reply_context
                             - text
                             - created_at
+                            - replies
                             - votes
                           properties:
                             id:
@@ -450,6 +458,8 @@ paths:
                               type: string
                             created_at:
                               type: string
+                            replies:
+                              type: integer
                             votes:
                               $ref: '#/components/schemas/votes'
 
@@ -541,3 +551,236 @@ paths:
                       - type: 'null'
                       - type: number
                         minimum: 0
+  /comments/{comment_id}/:
+    delete:
+      summary: Delete a comment
+      parameters:
+        - name: comment_id
+          in: path
+          required: true
+          schema:
+            id:
+              type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                  - value
+                properties:
+                  error:
+                    type: string
+                    example: null
+                  value:
+                    type: string
+                    example: null
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - BadRequest
+                properties:
+                  BadRequest:
+                    type: string
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'
+
+  /comments/{comment_id}/vote:
+    put:
+      summary: Vote on comment
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/masked-id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: integer
+              enum:
+                - -1
+                - 0
+                - 1
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: 'object'
+                required:
+                  - value
+                properties:
+                  value:
+                    $ref: '#/components/schemas/votes'
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'
+  /comments/:
+    post:
+      summary: Create comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+                - parent_post
+                - parent_comments
+              properties:
+                text:
+                  type: string
+                parent_post:
+                  $ref: '#/components/schemas/masked-id'
+                parent_comments:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/masked-id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                  - value
+                properties:
+                  error:
+                    type: string
+                    example: null
+                  value:
+                    type: object
+                    required:
+                      - id
+                    properties:
+                      id:
+                        $ref: '#/components/schemas/masked-id'
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'
+    get:
+      summary: Fetch comments from a post, or from a parent comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - kind
+                - sort
+                - parent
+                - seen
+              properties:
+                kind:
+                  type: string
+                  enum:
+                    - thread
+                    - root
+                sort:
+                  type: string
+                  enum:
+                    - new
+                    - top
+                    - worst
+                    - controversial
+                    - best
+                    - replies
+                parent:
+                  $ref: '#/components/schemas/masked-id'
+                seen:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/masked-id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                  - value
+                properties:
+                  error:
+                    type: string
+                    example: null
+                  value:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - parent_comments
+                        - parent_post
+                        - text
+                        - replies
+                        - children
+                        - votes
+                      properties:
+                        id:
+                          $ref: '#/components/schemas/masked-id'
+                        parent_comments:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/masked-id'
+                        parent_post:
+                          $ref: '#/components/schemas/masked-id'
+                        text:
+                          type: string
+                        replies:
+                          type: integer
+                        children:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/masked-id'
+                        votes:
+                          type: object
+                          required:
+                            - up
+                            - down
+                          properties:
+                            up:
+                              type: integer
+                            down:
+                              type: integer
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+        '500':
+          $ref: '#/components/responses/unexpected'

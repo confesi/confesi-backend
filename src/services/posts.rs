@@ -52,13 +52,14 @@ use crate::types::{
 	Post,
 	Vote,
 };
+use crate::utils::content_scoring::get_trending_score_time;
 
 #[derive(Serialize)]
 pub struct ReplyContext {
 	pub id: MaskedObjectId,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Votes {
 	pub up: u32,
 	pub down: u32,
@@ -72,6 +73,7 @@ pub struct Detail {
 	pub text: String,
 	pub created_at: String,
 	pub votes: Votes,
+	pub replies: i32,
 }
 
 #[derive(Deserialize)]
@@ -131,6 +133,7 @@ pub async fn get_single_post(
 			up: u32::try_from(post.votes_up).unwrap(),
 			down: u32::try_from(post.votes_down).unwrap(),
 		},
+		replies: post.replies,
 	}))
 }
 
@@ -192,6 +195,7 @@ pub async fn list(
 					up: u32::try_from(post.votes_up).unwrap(),
 					down: u32::try_from(post.votes_down).unwrap(),
 				},
+				replies: post.replies,
 			})
 		})
 		.try_collect::<Vec<Result<Detail, Failure<()>>>>()
@@ -201,12 +205,6 @@ pub async fn list(
 		.collect::<Result<Vec<Detail>, Failure<()>>>()?;
 
 	success(posts.into())
-}
-
-/// Gets the time-based offset of the trending score for the given timestamp.
-fn get_trending_score_time(date_time: &DateTime) -> f64 {
-	f64::from(u32::try_from(date_time.timestamp_millis() / 1000 - conf::TRENDING_EPOCH).unwrap())
-		/ conf::TRENDING_DECAY
 }
 
 #[post("/posts/")]
@@ -227,6 +225,7 @@ pub async fn create(
 		"votes_down": 0,
 		"absolute_score": 0,
 		"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
+		"replies": 0,
 	};
 	let mut attempt = 0;
 	let insertion = loop {
@@ -321,10 +320,10 @@ pub async fn vote(
 		}
 
 		let existing_vote = db
-			.collection::<Vote>("votes")
+			.collection::<Vote>("post_votes")
 			.find_one_with_session(
 				doc! {
-					"post": {"$eq": post_id},
+					"content": {"$eq": post_id},
 					"user": {"$eq": user.id},
 				},
 				None,
@@ -342,10 +341,10 @@ pub async fn vote(
 		match existing_vote {
 			None => {
 				match db
-					.collection::<Vote>("votes")
+					.collection::<Vote>("post_votes")
 					.insert_one_with_session(
 						Vote {
-							post: post_id,
+							content: post_id,
 							user: user.id,
 							value: *request,
 						},
@@ -363,10 +362,10 @@ pub async fn vote(
 			}
 			Some(existing_vote) => {
 				match db
-					.collection::<Vote>("votes")
+					.collection::<Vote>("post_votes")
 					.update_one_with_session(
 						doc! {
-							"post": {"$eq": post_id},
+							"content": {"$eq": post_id},
 							"user": {"$eq": user.id},
 							"value": {"$eq": existing_vote},
 						},

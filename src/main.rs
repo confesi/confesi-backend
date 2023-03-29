@@ -8,6 +8,7 @@ mod masked_oid;
 mod middleware;
 mod services;
 mod types;
+mod utils;
 
 use std::env;
 use std::error::Error;
@@ -40,6 +41,7 @@ use mongodb::{
 	Database,
 	IndexModel,
 };
+use types::Comment;
 
 use crate::masked_oid::MaskingKey;
 use crate::middleware::HostCheckWrap;
@@ -58,7 +60,9 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 	let users = db.collection::<User>("users");
 	let sessions = db.collection::<Session>("sessions");
 	let posts = db.collection::<Post>("posts");
-	let votes = db.collection::<Vote>("votes");
+	let post_votes = db.collection::<Vote>("post_votes");
+	let comment_votes = db.collection::<Vote>("comment_votes");
+	let comments = db.collection::<Comment>("comments");
 
 	try_join!(
 		users.create_index(
@@ -87,6 +91,51 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 						.expire_after(conf::UNUSED_SESSION_TTL)
 						.build()
 				)
+				.build(),
+			None,
+		),
+		// Is this too many indices? Probably...
+		comments.create_index(
+			IndexModel::builder().keys(doc! {"parent_post": -1}).build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"parent_comments": -1})
+				.build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder().keys(doc! {"replies": -1}).build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"sequential_id": -1})
+				.build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"votes_up": -1, "votes_down": -1})
+				.build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"absolute_score": -1})
+				.build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"absolute_score": 1})
+				.build(),
+			None,
+		),
+		comments.create_index(
+			IndexModel::builder()
+				.keys(doc! {"trending_score": -1})
 				.build(),
 			None,
 		),
@@ -156,9 +205,16 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 
 			Ok(())
 		},
-		votes.create_index(
+		post_votes.create_index(
 			IndexModel::builder()
-				.keys(doc! {"post": 1, "user": 1})
+				.keys(doc! {"content": 1, "user": 1})
+				.options(IndexOptions::builder().unique(true).build())
+				.build(),
+			None,
+		),
+		comment_votes.create_index(
+			IndexModel::builder()
+				.keys(doc! {"content": 1, "user": 1})
 				.options(IndexOptions::builder().unique(true).build())
 				.build(),
 			None,
@@ -244,6 +300,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::get_watched)
 			.service(services::profile::add_watched)
 			.service(services::profile::delete_watched)
+			.service(services::comments::get_comment)
+			.service(services::comments::create_comment)
+			.service(services::comments::delete_comment)
+			.service(services::comments::vote_on_comment)
 	})
 	.bind(("0.0.0.0", 3000))?
 	.run()
