@@ -782,7 +782,5 @@ paths:
                   properties:
                     BadRequest:
                       type: string
-        '401':
-          $ref: '#/components/responses/unauthenticated'
         '500':
           $ref: '#/components/responses/unexpected'
