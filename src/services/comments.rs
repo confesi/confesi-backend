@@ -26,6 +26,7 @@ use crate::{
 #[derive(Serialize, Clone)]
 pub struct CommentDetail {
 	pub id: MaskedObjectId,
+	pub username: String,
 	pub parent_comments: Vec<MaskedObjectId>,
 	pub parent_post: MaskedObjectId,
 	pub text: String,
@@ -415,13 +416,13 @@ pub async fn delete_comment(
 	comment_id: web::Path<MaskedObjectId>,
 ) -> ApiResult<(), ()> {
 	match db.collection::<Comment>("comments").update_one(
-			doc! {"_id": masking_key.unmask(&comment_id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?, "owner": &user.id},
-			doc! {"$set": {"deleted": true}},
-			None,
-		).await {
-			Ok(_) => success(()), // idempotent deletion
-			Err(_) => Err(Failure::Unexpected),
-		}
+		doc! {"_id": masking_key.unmask(&comment_id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?, "owner": &user.id},
+		doc! {"$set": {"deleted": true}},
+		None,
+	).await {
+		Ok(_) => success(()), // idempotent deletion
+		Err(_) => Err(Failure::Unexpected),
+	}
 }
 
 /// The types of comment fetching options.
@@ -463,19 +464,19 @@ impl CommentSort {
 			CommentSort::Worst => vec![doc! {"absolute_score": 1}],
 			CommentSort::Controversial => vec![
 				doc! {
-						"$addFields": {
-								"score_diff": {
-										"$abs": {
-												"$subtract": ["$absolute_score", 0]
-										}
-								},
-								"total_votes": {
-										"$add": ["$votes_up", "$votes_down"]
-								}
+					"$addFields": {
+						"score_diff": {
+							"$abs": {
+								"$subtract": ["$absolute_score", 0]
+							}
+						},
+						"total_votes": {
+							"$add": ["$votes_up", "$votes_down"]
 						}
+					}
 				},
 				doc! {
-						"$sort": { "score_diff": 1, "total_votes": -1 }
+					"$sort": { "score_diff": 1, "total_votes": -1 }
 				},
 			],
 			CommentSort::Best => vec![doc! {"trending_score": -1}],
@@ -532,10 +533,10 @@ pub async fn get_comment(
 		CommentFetchType::Thread { .. } => {
 			vec![doc! {
 				"$expr": {
-						"$eq": [
-								{ "$arrayElemAt": [ "$parent_comments", -1 ] },
-								id
-						]
+					"$eq": [
+					{ "$arrayElemAt": [ "$parent_comments", -1 ] },
+					id
+					]
 				}
 			}]
 		}
@@ -543,9 +544,9 @@ pub async fn get_comment(
 
 	find_filter.push(doc! {
 		"_id": {
-				"$not": {
-						"$in": &excluded_ids
-				}
+			"$not": {
+				"$in": &excluded_ids
+			}
 		}
 	});
 
@@ -581,6 +582,7 @@ pub async fn get_comment(
 				result.and_then(|comment| {
 					Ok(CommentDetail {
 						id: masking_key.mask(&comment.id),
+						username: comment.username,
 						parent_comments: comment
 							.parent_comments
 							.iter()
@@ -623,6 +625,7 @@ pub async fn get_comment(
 						.map(|id| masking_key.mask(id))
 						.collect(),
 					parent_post: masking_key.mask(&comment.parent_post),
+					username: comment.username,
 					text: if comment.deleted {
 						"[deleted]".to_string()
 					} else {
@@ -660,50 +663,51 @@ pub async fn get_comment(
 			continue;
 		};
 		let replies = db.collection::<Comment>("comments")
-					.find(
-							doc! {
-								"$and": vec![
-									doc! {
-										"_id": {
-												"$not": {
-														"$in": &excluded_ids
-												}
-										}
-									},
-									doc! {
-										"$expr": {
-												"$eq": [
-														{ "$arrayElemAt": [ "$parent_comments", -1 ] },
-														masking_key.unmask(&parent_comment.id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?
-												]
-										}
-									},
+			.find(
+				doc! {
+					"$and": vec![
+						doc! {
+							"_id": {
+								"$not": {
+									"$in": &excluded_ids
+								}
+							}
+						},
+						doc! {
+							"$expr": {
+								"$eq": [
+								{ "$arrayElemAt": [ "$parent_comments", -1 ] },
+								masking_key.unmask(&parent_comment.id).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?
 								]
-							},
-							FindOptions::builder()
-							    .sort(doc! {"replies": -1}) // sort threaded comments by replies to help build the best tree structures
-									.limit(i64::from(conf::MAX_REPLYING_COMMENTS_PER_LOAD))
-									.build()
+							}
+						},
+					]
+				},
+				FindOptions::builder()
+					.sort(doc! {"replies": -1}) // sort threaded comments by replies to help build the best tree structures
+					.limit(i64::from(conf::MAX_REPLYING_COMMENTS_PER_LOAD))
+					.build()
 					)
 					.await
 					.map_err(to_unexpected!("Getting comments cursor failed"))?
 					.map_ok(|comment| Ok(CommentDetail {
-							id: masking_key.mask(&comment.id),
-							parent_comments: comment.parent_comments.iter().map(|id| masking_key.mask(id)).collect(),
-							parent_post: masking_key.mask(&comment.parent_post),
-							text: if comment.deleted {"[deleted]".to_string()} else {comment.text},
-							replies: comment.replies,
-							children: vec![],
-							votes: Votes {
-								up: u32::try_from(comment.votes_up).unwrap(),
-								down: u32::try_from(comment.votes_down).unwrap(),
-							},
+						id: masking_key.mask(&comment.id),
+						username: String::from("test"), // TODO: delete pre commmit
+						parent_comments: comment.parent_comments.iter().map(|id| masking_key.mask(id)).collect(),
+						parent_post: masking_key.mask(&comment.parent_post),
+						text: if comment.deleted {"[deleted]".to_string()} else {comment.text},
+						replies: comment.replies,
+						children: vec![],
+						votes: Votes {
+							up: u32::try_from(comment.votes_up).unwrap(),
+							down: u32::try_from(comment.votes_down).unwrap(),
+						},
 					}))
-					.try_collect::<Vec<Result<CommentDetail, Failure<()>>>>()
-					.await
-					.map_err(to_unexpected!("Getting comments failed"))?
-					.into_iter()
-					.collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
+		.try_collect::<Vec<Result<CommentDetail, Failure<()>>>>()
+			.await
+			.map_err(to_unexpected!("Getting comments failed"))?
+			.into_iter()
+			.collect::<Result<Vec<CommentDetail>, Failure<()>>>()?;
 		for comment in replies {
 			if count < conf::MIN_REPLYING_COMMENTS_PER_LOAD_IF_AVAILABLE
 				|| rand::thread_rng().gen_bool(p(1.0, parent_comment.replies as f64))
