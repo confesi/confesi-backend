@@ -5,7 +5,7 @@ use actix_web::{delete, get, post, put, web};
 use futures::TryStreamExt;
 use log::{debug, error};
 use mongodb::{
-	bson::{self, doc, Bson, DateTime, Document},
+	bson::{self, doc, to_bson, Bson, DateTime, Document},
 	options::{FindOneOptions, FindOptions, TransactionOptions},
 	Client as MongoClient, Database,
 };
@@ -272,10 +272,13 @@ pub async fn create_comment(
 		.map_err(to_unexpected!("User not found"))?
 		.unwrap();
 
+	let username = to_bson(&user_search.username)
+		.map_err(to_unexpected!("[ERROR] converting username to bson"))?;
+
 	let mut insert_doc = doc! {
 		"owner": &user.id,
 		"text": &request.text,
-		"username": &user_search.username,
+		"username": username,
 		"parent_post": masking_key.unmask(&request.parent_post).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?,
 		"parent_comments": request.parent_comments.iter().map(|masked_oid| masking_key.unmask(masked_oid).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))).collect::<Result<Vec<_>, _>>()?,
 		"replies": 0,
