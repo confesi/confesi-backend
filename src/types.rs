@@ -1,25 +1,15 @@
-pub use self::token::{
-	SessionToken,
-	SessionTokenHash,
-};
+pub use self::token::{SessionToken, SessionTokenHash};
 
+use blake2::digest::consts::U16;
+use blake2::{Blake2b, Digest};
+use mongodb::bson::oid::ObjectId;
+use mongodb::bson::spec::BinarySubtype;
+use mongodb::bson::{Binary, Bson, DateTime};
+use rand::RngCore;
+use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
 use std::str::{self, FromStr};
-use blake2::{
-	Blake2b,
-	Digest,
-};
-use blake2::digest::consts::U16;
-use mongodb::bson::{
-	Binary,
-	Bson,
-	DateTime,
-};
-use mongodb::bson::oid::ObjectId;
-use mongodb::bson::spec::BinarySubtype;
-use rand::RngCore;
-use serde::{Deserialize, Serialize};
 
 use crate::conf;
 
@@ -43,7 +33,9 @@ impl TryFrom<String> for Username {
 	type Error = UsernameInvalid;
 
 	fn try_from(s: String) -> Result<Self, Self::Error> {
-		if (1..=conf::USERNAME_MAX_LENGTH).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_alphanumeric()) {
+		if (1..=conf::USERNAME_MAX_LENGTH).contains(&s.len())
+			&& s.bytes().all(|b| b.is_ascii_alphanumeric())
+		{
 			Ok(Self(s))
 		} else {
 			Err(UsernameInvalid)
@@ -88,6 +80,7 @@ pub struct Comment {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
 	pub owner: ObjectId,
+	pub username: String,
 	pub parent_post: ObjectId,
 	pub parent_comments: Vec<ObjectId>,
 	pub text: String,
@@ -113,35 +106,35 @@ pub struct Post {
 	pub replies: i32,
 }
 
- /// The various years of study the creator of a post can be.
- #[derive(Deserialize, Serialize, Clone, Debug)]
- #[serde(rename_all = "snake_case")]
- pub enum PosterYearOfStudy {
- 	One,
- 	Two,
- 	Three,
- 	Four,
- 	Five,
- 	Graduate,
- 	PhD,
- 	Alumni,
+/// The various years of study the creator of a post can be.
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum PosterYearOfStudy {
+	One,
+	Two,
+	Three,
+	Four,
+	Five,
+	Graduate,
+	PhD,
+	Alumni,
 }
 
- /// The various faculties the creator of a post can be associated with.
- #[derive(Deserialize, Serialize, Clone, Debug)]
- #[serde(rename_all = "snake_case")]
- pub enum PosterFaculty {
- 	Business,
- 	Medicine,
- 	SocialScience,
- 	History,
- 	Engineering,
- 	ComputerScience,
- 	Psychology,
- 	Communication,
- 	Arts,
- 	Education,
- }
+/// The various faculties the creator of a post can be associated with.
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum PosterFaculty {
+	Business,
+	Medicine,
+	SocialScience,
+	History,
+	Engineering,
+	ComputerScience,
+	Psychology,
+	Communication,
+	Arts,
+	Education,
+}
 
 #[derive(Deserialize)]
 pub struct School {
@@ -162,9 +155,7 @@ mod token {
 
 	/// A 120-bit bearer token.
 	#[derive(Deserialize, Serialize)]
-	pub struct SessionToken(
-		[u8; 24]
-	);
+	pub struct SessionToken([u8; 24]);
 
 	impl SessionToken {
 		pub fn generate() -> Self {
@@ -236,9 +227,7 @@ mod token {
 		type Error = InvalidHashLength;
 
 		fn try_from(b: Binary) -> Result<Self, Self::Error> {
-			b.bytes.try_into()
-				.map(Self)
-				.map_err(|_| InvalidHashLength)
+			b.bytes.try_into().map(Self).map_err(|_| InvalidHashLength)
 		}
 	}
 
