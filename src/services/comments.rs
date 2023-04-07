@@ -18,7 +18,7 @@ use crate::{
 	masked_oid::{self, MaskedObjectId, MaskingKey},
 	services::posts::{Created, Votes},
 	to_unexpected,
-	types::{Comment, Post, Vote},
+	types::{Comment, Post, User, Vote},
 	utils::content_scoring::get_trending_score_time,
 };
 
@@ -261,9 +261,21 @@ pub async fn create_comment(
 		return Err(Failure::BadRequest("too many parent comments"));
 	}
 
+	let user_filter = doc! {
+		"_id": {"$eq": &user.id}
+	};
+
+	let user_search = db
+		.collection::<User>("users")
+		.find_one(user_filter, None)
+		.await
+		.map_err(to_unexpected!("User not found"))?
+		.unwrap();
+
 	let mut insert_doc = doc! {
 		"owner": &user.id,
 		"text": &request.text,
+		"username": &user_search.username,
 		"parent_post": masking_key.unmask(&request.parent_post).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?,
 		"parent_comments": request.parent_comments.iter().map(|masked_oid| masking_key.unmask(masked_oid).map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))).collect::<Result<Vec<_>, _>>()?,
 		"replies": 0,
