@@ -269,8 +269,8 @@ pub async fn create_comment(
 		.collection::<User>("users")
 		.find_one(user_filter, None)
 		.await
-		.map_err(to_unexpected!("User not found"))?
-		.unwrap();
+		.map_err(to_unexpected!("[ERROR] querying db for user"))?
+		.ok_or(Failure::BadRequest("Invalid user"))?;
 
 	let username = to_bson(&user_search.username)
 		.map_err(to_unexpected!("[ERROR] converting username to bson"))?;
@@ -707,7 +707,7 @@ pub async fn get_comment(
 					.map_err(to_unexpected!("Getting comments cursor failed"))?
 					.map_ok(|comment| Ok(CommentDetail {
 						id: masking_key.mask(&comment.id),
-						username: String::from("test"), // TODO: delete pre commmit
+						username: comment.username,
 						parent_comments: comment.parent_comments.iter().map(|id| masking_key.mask(id)).collect(),
 						parent_post: masking_key.mask(&comment.parent_post),
 						text: if comment.deleted {"[deleted]".to_string()} else {comment.text},
