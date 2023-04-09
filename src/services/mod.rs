@@ -3,18 +3,35 @@ pub mod posts;
 pub mod profile;
 
 use actix_web::web;
-use actix_web::{get, HttpRequest};
+use actix_web::{
+	get,
+	HttpRequest,
+};
 use futures::TryStreamExt;
-use log::{error, info, warn};
+use log::{
+	error,
+	info,
+	warn,
+};
 use maxminddb::geoip2;
 use mongodb::bson::document::ValueAccessError;
-use mongodb::bson::{doc, Document};
+use mongodb::bson::{
+	doc,
+	Document,
+};
 use mongodb::Database;
 use serde::Serialize;
 
-use crate::api_types::{success, ApiResult, Failure};
+use crate::api_types::{
+	success,
+	ApiResult,
+	Failure,
+};
 use crate::types::School;
-use crate::{to_unexpected, GeoIpReader};
+use crate::{
+	to_unexpected,
+	GeoIpReader,
+};
 
 #[derive(Serialize)]
 pub struct SchoolListing {

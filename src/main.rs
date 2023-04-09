@@ -9,26 +9,47 @@ mod middleware;
 mod services;
 mod types;
 
-use actix_cors::Cors;
-use actix_web::http::header;
-use actix_web::middleware::Logger;
-use actix_web::web;
-use actix_web::{App, HttpServer};
-use futures::try_join;
-use log::{info, warn};
-use memmap::Mmap;
-use mongodb::bson::doc;
-use mongodb::options::{
-	Collation, CollationStrength, IndexOptions, ReadConcernLevel, UpdateOptions,
-};
-use mongodb::{Client as MongoClient, Database, IndexModel};
 use std::env;
 use std::error::Error;
 use std::fs::File;
 
+use actix_cors::Cors;
+use actix_web::http::header;
+use actix_web::middleware::Logger;
+use actix_web::web;
+use actix_web::{
+	App,
+	HttpServer,
+};
+use futures::try_join;
+use log::{
+	info,
+	warn,
+};
+use memmap::Mmap;
+use mongodb::bson::doc;
+use mongodb::options::{
+	Collation,
+	CollationStrength,
+	IndexOptions,
+	ReadConcernLevel,
+	UpdateOptions,
+};
+use mongodb::{
+	Client as MongoClient,
+	Database,
+	IndexModel,
+};
+
 use crate::masked_oid::MaskingKey;
 use crate::middleware::HostCheckWrap;
-use crate::types::{Post, School, Session, User, Vote};
+use crate::types::{
+	Post,
+	School,
+	Session,
+	User,
+	Vote,
+};
 
 pub type GeoIpReader = &'static maxminddb::Reader<Mmap>;
 

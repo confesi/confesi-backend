@@ -4,7 +4,12 @@ mod tests;
 use std::fmt;
 
 use base64::display::Base64Display;
-use serde::de::{Deserializer, Error, Unexpected, Visitor};
+use serde::de::{
+	Deserializer,
+	Error,
+	Unexpected,
+	Visitor,
+};
 use serde::ser::Serializer;
 
 pub fn serialize<S: Serializer>(value: &[u8], serializer: S) -> Result<S::Ok, S::Error> {

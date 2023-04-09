@@ -1,22 +1,45 @@
 use std::fmt;
-use std::future::{self, Future};
+use std::future::{
+	self,
+	Future,
+};
 use std::pin::Pin;
 use std::time::SystemTime;
 
 use actix_web::http::header;
 use actix_web::http::StatusCode;
 use actix_web::web;
-use actix_web::{FromRequest, HttpRequest, HttpResponse, ResponseError};
-use log::{debug, error, warn};
+use actix_web::{
+	FromRequest,
+	HttpRequest,
+	HttpResponse,
+	ResponseError,
+};
+use log::{
+	debug,
+	error,
+	warn,
+};
 use mongodb::bson::oid::ObjectId;
-use mongodb::bson::{doc, to_bson};
-use mongodb::options::{Acknowledgment, UpdateOptions, WriteConcern};
+use mongodb::bson::{
+	doc,
+	to_bson,
+};
+use mongodb::options::{
+	Acknowledgment,
+	UpdateOptions,
+	WriteConcern,
+};
 use mongodb::Database;
 use serde::Serialize;
 
 use crate::api_types::ApiError;
 use crate::conf;
-use crate::types::{Session, SessionToken, SessionTokenHash};
+use crate::types::{
+	Session,
+	SessionToken,
+	SessionTokenHash,
+};
 
 #[derive(Debug)]
 pub struct Guest;

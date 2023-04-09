@@ -1,18 +1,52 @@
 use actix_web::http::StatusCode;
 use actix_web::post;
 use actix_web::web;
-use log::{debug, error};
-use mongodb::bson::{doc, to_bson, DateTime, Document};
-use mongodb::error::{ErrorKind, WriteFailure};
+use log::{
+	debug,
+	error,
+};
+use mongodb::bson::{
+	doc,
+	to_bson,
+	DateTime,
+	Document,
+};
+use mongodb::error::{
+	ErrorKind,
+	WriteFailure,
+};
 use mongodb::Database;
-use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde::{
+	Deserialize,
+	Serialize,
+};
+use serde_with::{
+	serde_as,
+	DisplayFromStr,
+};
 
-use crate::api_types::{failure, success, ApiError, ApiResult, Failure};
-use crate::auth::{AuthenticatedUser, AuthenticationError, Authorization, Guest};
+use crate::api_types::{
+	failure,
+	success,
+	ApiError,
+	ApiResult,
+	Failure,
+};
+use crate::auth::{
+	AuthenticatedUser,
+	AuthenticationError,
+	Authorization,
+	Guest,
+};
 use crate::to_unexpected;
 use crate::types::{
-	PosterFaculty, PosterYearOfStudy, School, Session, SessionToken, User, Username,
+	PosterFaculty,
+	PosterYearOfStudy,
+	School,
+	Session,
+	SessionToken,
+	User,
+	Username,
 };
 
 #[derive(Deserialize)]

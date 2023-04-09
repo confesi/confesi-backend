@@ -1,16 +1,32 @@
-pub use self::token::{SessionToken, SessionTokenHash};
-
-use blake2::digest::consts::U16;
-use blake2::{Blake2b, Digest};
-use mongodb::bson::oid::ObjectId;
-use mongodb::bson::spec::BinarySubtype;
-use mongodb::bson::{Binary, Bson, DateTime};
-use rand::RngCore;
-use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
-use std::str::{self, FromStr};
+use std::str::{
+	self,
+	FromStr,
+};
 
+use blake2::digest::consts::U16;
+use blake2::{
+	Blake2b,
+	Digest,
+};
+use mongodb::bson::oid::ObjectId;
+use mongodb::bson::spec::BinarySubtype;
+use mongodb::bson::{
+	Binary,
+	Bson,
+	DateTime,
+};
+use rand::RngCore;
+use serde::{
+	Deserialize,
+	Serialize,
+};
+
+pub use self::token::{
+	SessionToken,
+	SessionTokenHash,
+};
 use crate::conf;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]

@@ -1,11 +1,19 @@
 //! Encrypts MongoDB ObjectIDs to avoid leaking information and having enumerable resources.
 
-use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
-use aes::Aes128;
-use mongodb::bson::oid::ObjectId;
-use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt;
+
+use aes::cipher::{
+	BlockDecrypt,
+	BlockEncrypt,
+	KeyInit,
+};
+use aes::Aes128;
+use mongodb::bson::oid::ObjectId;
+use serde::{
+	Deserialize,
+	Serialize,
+};
 
 const TYPE_OBJECT_ID: u8 = 0;
 const TYPE_SEQUENTIAL_ID: u8 = 1;
