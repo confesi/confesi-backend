@@ -65,6 +65,10 @@ pub struct User {
 	pub school_id: String,
 	// Watched universities of the user
 	pub watched_school_ids: Vec<String>,
+	/// The user's email address.
+	pub email: Option<String>, // TODO: should this be masked?
+	/// If a user has a verified email address
+	pub email_verified: bool,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -123,6 +127,7 @@ pub struct School {
 	#[serde(rename = "_id")]
 	pub id: String,
 	pub name: String,
+	pub email_domains: Vec<String>,
 }
 
 #[derive(Deserialize, Serialize)]

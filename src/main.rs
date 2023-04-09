@@ -109,6 +109,7 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 								"type": "Point",
 								"coordinates": [-123.3117, 48.4633],
 							},
+							"email_domains": vec!["uvic.ca"],
 						},
 					},
 					UpdateOptions::builder().upsert(true).build(),
@@ -127,6 +128,7 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 								"type": "Point",
 								"coordinates": [-123.2460, 49.2606],
 							},
+							"email_domains": vec!["student.ubc.ca", "allumni.ubc.ca"],
 						},
 					},
 					UpdateOptions::builder().upsert(true).build(),
@@ -135,6 +137,12 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 
 			Ok(())
 		},
+		schools.create_index(
+			IndexModel::builder()
+				.keys(doc! {"email_domains": 1})
+				.build(),
+			None,
+		),
 		votes.create_index(
 			IndexModel::builder()
 				.keys(doc! {"post": 1, "user": 1})
@@ -223,6 +231,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::get_watched)
 			.service(services::profile::add_watched)
 			.service(services::profile::delete_watched)
+			.service(services::email::verify_link)
+			.service(services::email::send_verification_email)
 	})
 	.bind(("0.0.0.0", 3000))?
 	.run()

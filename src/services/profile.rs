@@ -32,6 +32,8 @@ pub struct ProfileData {
 	pub school_id: String,
 	// Username of user
 	pub username: String,
+	/// If the user is verified (via their school email)
+	pub verified: bool,
 }
 
 /// Fetches user profile information.
@@ -50,6 +52,7 @@ pub async fn get_profile(
 		Ok(possible_user) => match possible_user {
 			Some(user) => {
 				return success(ProfileData {
+					verified: user.email_verified,
 					year_of_study: user.year_of_study,
 					faculty: user.faculty,
 					school_id: user.school_id,

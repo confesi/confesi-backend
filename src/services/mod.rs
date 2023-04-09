@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod posts;
 pub mod profile;
+pub mod email;
 
 use actix_web::web;
 use actix_web::{get, HttpRequest};

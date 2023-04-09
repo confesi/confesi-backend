@@ -154,6 +154,7 @@ pub async fn register(
 			"username": to_bson(&new_user.username).map_err(to_unexpected!("Converting username to bson failed"))?,
 			"watched_school_ids": to_bson::<Vec<String>>(&vec![]).map_err(to_unexpected!("Converting empty vector to bson failed"))?,
 			"school_id": &new_user.school_id,
+			"email_verified": false,
 		},
 		None
 	);
