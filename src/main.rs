@@ -9,50 +9,26 @@ mod middleware;
 mod services;
 mod types;
 
-use std::env;
-use std::error::Error;
-use std::fs::File;
 use actix_cors::Cors;
-use actix_web::{
-	App,
-	HttpServer,
-};
 use actix_web::http::header;
 use actix_web::middleware::Logger;
 use actix_web::web;
-use futures::{
-	try_join,
-};
-use log::{
-	info,
-	warn,
-};
+use actix_web::{App, HttpServer};
+use futures::try_join;
+use log::{info, warn};
 use memmap::Mmap;
-use mongodb::{
-	Client as MongoClient,
-	Database,
-	IndexModel,
-};
-use mongodb::bson::{
-	doc,
-};
+use mongodb::bson::doc;
 use mongodb::options::{
-	Collation,
-	CollationStrength,
-	IndexOptions,
-	ReadConcernLevel,
-	UpdateOptions,
+	Collation, CollationStrength, IndexOptions, ReadConcernLevel, UpdateOptions,
 };
+use mongodb::{Client as MongoClient, Database, IndexModel};
+use std::env;
+use std::error::Error;
+use std::fs::File;
 
 use crate::masked_oid::MaskingKey;
 use crate::middleware::HostCheckWrap;
-use crate::types::{
-	Post,
-	School,
-	Session,
-	User,
-	Vote,
-};
+use crate::types::{Post, School, Session, User, Vote};
 
 pub type GeoIpReader = &'static maxminddb::Reader<Mmap>;
 
@@ -81,13 +57,7 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 				.build(),
 			None,
 		),
-
-		sessions.create_index(
-			IndexModel::builder()
-				.keys(doc! {"user": 1})
-				.build(),
-			None,
-		),
+		sessions.create_index(IndexModel::builder().keys(doc! {"user": 1}).build(), None,),
 		sessions.create_index(
 			IndexModel::builder()
 				.keys(doc! {"last_used": 1})
@@ -99,7 +69,6 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 				.build(),
 			None,
 		),
-
 		posts.create_index(
 			IndexModel::builder()
 				.keys(doc! {"sequential_id": -1})
@@ -118,62 +87,58 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 				.build(),
 			None,
 		),
-
 		async {
-			schools.create_index(
-				IndexModel::builder()
-					.keys(doc! {"position": "2dsphere"})
-					.build(),
-				None,
-			).await?;
+			schools
+				.create_index(
+					IndexModel::builder()
+						.keys(doc! {"position": "2dsphere"})
+						.build(),
+					None,
+				)
+				.await?;
 
-			schools.update_one(
-				doc! {
-					"_id": {"$eq": "UVIC"},
-				},
-				doc! {
-					"$set": {
-						"name": "University of Victoria",
-						"position": {
-							"type": "Point",
-							"coordinates": [-123.3117, 48.4633],
+			schools
+				.update_one(
+					doc! {
+						"_id": {"$eq": "UVIC"},
+					},
+					doc! {
+						"$set": {
+							"name": "University of Victoria",
+							"position": {
+								"type": "Point",
+								"coordinates": [-123.3117, 48.4633],
+							},
 						},
 					},
-				},
-				UpdateOptions::builder()
-					.upsert(true)
-					.build(),
-			).await?;
+					UpdateOptions::builder().upsert(true).build(),
+				)
+				.await?;
 
-			schools.update_one(
-				doc! {
-					"_id": {"$eq": "UBC"},
-				},
-				doc! {
-					"$set": {
-						"name": "University of British Columbia",
-						"position": {
-							"type": "Point",
-							"coordinates": [-123.2460, 49.2606],
+			schools
+				.update_one(
+					doc! {
+						"_id": {"$eq": "UBC"},
+					},
+					doc! {
+						"$set": {
+							"name": "University of British Columbia",
+							"position": {
+								"type": "Point",
+								"coordinates": [-123.2460, 49.2606],
+							},
 						},
 					},
-				},
-				UpdateOptions::builder()
-					.upsert(true)
-					.build(),
-			).await?;
+					UpdateOptions::builder().upsert(true).build(),
+				)
+				.await?;
 
 			Ok(())
 		},
-
 		votes.create_index(
 			IndexModel::builder()
 				.keys(doc! {"post": 1, "user": 1})
-				.options(
-					IndexOptions::builder()
-						.unique(true)
-						.build()
-				)
+				.options(IndexOptions::builder().unique(true).build())
 				.build(),
 			None,
 		),
@@ -203,12 +168,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	info!("Initializing database");
 
 	let mongo_client = MongoClient::with_uri_str(env::var("DB_CONNECT")?).await?;
-	let db =
-		mongo_client
+	let db = mongo_client
 		.default_database()
 		.expect("no default database");
 
-	assert_eq!(db.read_concern().map(|c| &c.level), Some(&ReadConcernLevel::Majority));
+	assert_eq!(
+		db.read_concern().map(|c| &c.level),
+		Some(&ReadConcernLevel::Majority)
+	);
 
 	initialize_database(&db).await?;
 
@@ -223,16 +190,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	};
 
 	HttpServer::new(move || {
-		let cors =
-			Cors::default()
-				.allowed_origin_fn(|origin, _req_head| {
-					origin.to_str()
-						.map(|origin| conf::PERMITTED_ORIGINS.contains(&origin))
-						.unwrap_or(false)
-				})
-				.allow_any_method()
-				.allowed_header(header::AUTHORIZATION)
-				.allowed_header(header::CONTENT_TYPE);
+		let cors = Cors::default()
+			.allowed_origin_fn(|origin, _req_head| {
+				origin
+					.to_str()
+					.map(|origin| conf::PERMITTED_ORIGINS.contains(&origin))
+					.unwrap_or(false)
+			})
+			.allow_any_method()
+			.allowed_header(header::AUTHORIZATION)
+			.allowed_header(header::CONTENT_TYPE);
 
 		App::new()
 			.wrap(cors)
@@ -257,9 +224,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::add_watched)
 			.service(services::profile::delete_watched)
 	})
-		.bind(("0.0.0.0", 3000))?
-		.run()
-		.await?;
+	.bind(("0.0.0.0", 3000))?
+	.run()
+	.await?;
 
 	Ok(())
 }

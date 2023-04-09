@@ -1,45 +1,18 @@
-use actix_web::{
-	post,
-};
-use actix_web::web;
 use actix_web::http::StatusCode;
-use log::{
-	debug,
-	error,
-};
+use actix_web::post;
+use actix_web::web;
+use log::{debug, error};
+use mongodb::bson::{doc, to_bson, DateTime, Document};
+use mongodb::error::{ErrorKind, WriteFailure};
 use mongodb::Database;
-use mongodb::bson::{
-	DateTime,
-	doc, Document, to_bson,
-};
-use mongodb::error::{
-	ErrorKind,
-	WriteFailure,
-};
 use serde::{Deserialize, Serialize};
-use serde_with::{DisplayFromStr, serde_as};
+use serde_with::{serde_as, DisplayFromStr};
 
-use crate::{
-	to_unexpected,
-};
-use crate::auth::{
-	Authorization,
-	AuthenticationError,
-	AuthenticatedUser,
-	Guest,
-};
-use crate::api_types::{
-	ApiError,
-	ApiResult,
-	Failure,
-	failure,
-	success,
-};
+use crate::api_types::{failure, success, ApiError, ApiResult, Failure};
+use crate::auth::{AuthenticatedUser, AuthenticationError, Authorization, Guest};
+use crate::to_unexpected;
 use crate::types::{
-	Session,
-	SessionToken,
-	User,
-	Username, PosterYearOfStudy, PosterFaculty, School,
+	PosterFaculty, PosterYearOfStudy, School, Session, SessionToken, User, Username,
 };
 
 #[derive(Deserialize)]
@@ -98,33 +71,40 @@ pub async fn login(
 	_guest: Guest,
 	credentials: web::Json<Credentials>,
 ) -> ApiResult<NewSession, LoginError> {
-	let user =
-		db.collection::<User>("users")
-			.find_one(doc! {"username": {"$eq": credentials.username.as_ref()}}, None)
-			.await
-			.map_err(to_unexpected!("Finding user failed"))?
-			.ok_or(Failure::Expected(LoginError::UsernameNotFound))?;
+	let user = db
+		.collection::<User>("users")
+		.find_one(
+			doc! {"username": {"$eq": credentials.username.as_ref()}},
+			None,
+		)
+		.await
+		.map_err(to_unexpected!("Finding user failed"))?
+		.ok_or(Failure::Expected(LoginError::UsernameNotFound))?;
 
 	let token = SessionToken::generate();
 
 	db.collection::<Session>("sessions")
-		.insert_one(Session {
-			id: token.hash(),
-			user: user.id,
-			last_used: DateTime::now(),
-		}, None)
+		.insert_one(
+			Session {
+				id: token.hash(),
+				user: user.id,
+				last_used: DateTime::now(),
+			},
+			None,
+		)
 		.await
 		.map_err(to_unexpected!("Creating session failed"))?;
 
-	success(NewSession {
-		token,
-	})
+	success(NewSession { token })
 }
 
 #[post("/logout")]
-pub async fn logout(db: web::Data<Database>, authorization: Authorization) -> ApiResult<(), AuthenticationError> {
-	let result =
-		db.collection::<Session>("sessions")
+pub async fn logout(
+	db: web::Data<Database>,
+	authorization: Authorization,
+) -> ApiResult<(), AuthenticationError> {
+	let result = db
+		.collection::<Session>("sessions")
 		.delete_one(doc! {"_id": {"$eq": authorization.session_id}}, None)
 		.await
 		.map_err(to_unexpected!("Deleting one session failed"))?;
@@ -153,8 +133,11 @@ pub async fn logout_all(db: web::Data<Database>, user: AuthenticatedUser) -> Api
 /// The [`year_of_study`] and [`faculty`] fields can be set to `null` (or not included) to indicate
 /// the user desires them to be kept private.
 #[post("/users/")]
-pub async fn register(db: web::Data<Database>, _guest: Guest, new_user: web::Json<NewUser>) -> ApiResult<(), RegistrationError> {
-
+pub async fn register(
+	db: web::Data<Database>,
+	_guest: Guest,
+	new_user: web::Json<NewUser>,
+) -> ApiResult<(), RegistrationError> {
 	// Check to see if their [`school_id`] is valid.
 	db.collection::<School>("schools")
 		.find_one(doc! {"_id": {"$eq": new_user.school_id.clone()}}, None)
@@ -182,15 +165,14 @@ pub async fn register(db: web::Data<Database>, _guest: Guest, new_user: web::Jso
 			// TODO: possible to apply `StatusCode::CREATED`?
 			success(())
 		}
-		Err(err) => {
-			match err.kind.as_ref() {
-				ErrorKind::Write(WriteFailure::WriteError(err)) if err.code == 11000 =>
-					failure(RegistrationError::UsernameTaken),
-				_ => {
-					error!("Inserting user failed: {}", err);
-					Err(Failure::Unexpected)
-				}
+		Err(err) => match err.kind.as_ref() {
+			ErrorKind::Write(WriteFailure::WriteError(err)) if err.code == 11000 => {
+				failure(RegistrationError::UsernameTaken)
 			}
-		}
+			_ => {
+				error!("Inserting user failed: {}", err);
+				Err(Failure::Unexpected)
+			}
+		},
 	}
 }

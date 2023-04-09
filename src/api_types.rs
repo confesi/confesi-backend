@@ -2,23 +2,13 @@
 
 use std::fmt;
 
-use actix_web::{
-	HttpRequest,
-	HttpResponse,
-	Responder,
-	ResponseError,
-};
 use actix_web::body::MessageBody;
-use actix_web::http::StatusCode;
 use actix_web::http::header::{self, HeaderValue};
-use log::{
-	error,
-};
-use serde::{Serialize};
-use serde::ser::{
-	SerializeStruct,
-	Serializer,
-};
+use actix_web::http::StatusCode;
+use actix_web::{HttpRequest, HttpResponse, Responder, ResponseError};
+use log::error;
+use serde::ser::{SerializeStruct, Serializer};
+use serde::Serialize;
 
 pub trait ApiError: Serialize {
 	fn status_code(&self) -> StatusCode;
@@ -60,7 +50,10 @@ impl<T: Serialize> Responder for Success<T> {
 			Ok(body) => (StatusCode::OK, body),
 			Err(err) => {
 				error!("JSON serialization failure: {}", err);
-				(StatusCode::INTERNAL_SERVER_ERROR, String::from(r#"{"error":"InternalError"}"#))
+				(
+					StatusCode::INTERNAL_SERVER_ERROR,
+					String::from(r#"{"error":"InternalError"}"#),
+				)
 			}
 		};
 
@@ -133,12 +126,18 @@ impl<E: ApiError + fmt::Debug> ResponseError for Failure<E> {
 			Ok(body) => (self.status_code(), body),
 			Err(err) => {
 				error!("JSON serialization failure: {}", err);
-				(StatusCode::INTERNAL_SERVER_ERROR, String::from(r#"{"error":"InternalError"}"#))
+				(
+					StatusCode::INTERNAL_SERVER_ERROR,
+					String::from(r#"{"error":"InternalError"}"#),
+				)
 			}
 		};
 
 		HttpResponse::build(status)
-			.insert_header((header::CONTENT_TYPE, HeaderValue::from_static("application/json")))
+			.insert_header((
+				header::CONTENT_TYPE,
+				HeaderValue::from_static("application/json"),
+			))
 			.message_body(body.boxed())
 			.expect("no response builder errors should be possible")
 	}
@@ -151,5 +150,5 @@ macro_rules! to_unexpected {
 			error!(concat!($message, ": {}"), err);
 			Failure::Unexpected
 		}
-	}
+	};
 }

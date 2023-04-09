@@ -1,45 +1,22 @@
 use std::fmt;
-use std::future::{
-	self,
-	Future,
-};
+use std::future::{self, Future};
 use std::pin::Pin;
 use std::time::SystemTime;
 
-use actix_web::{
-	FromRequest,
-	HttpRequest,
-	HttpResponse,
-	ResponseError,
-};
-use actix_web::http::StatusCode;
 use actix_web::http::header;
+use actix_web::http::StatusCode;
 use actix_web::web;
-use log::{
-	debug,
-	error,
-	warn,
-};
-use mongodb::Database;
-use mongodb::bson::{
-	doc,
-	to_bson,
-};
+use actix_web::{FromRequest, HttpRequest, HttpResponse, ResponseError};
+use log::{debug, error, warn};
 use mongodb::bson::oid::ObjectId;
-use mongodb::options::{
-	Acknowledgment,
-	UpdateOptions,
-	WriteConcern,
-};
+use mongodb::bson::{doc, to_bson};
+use mongodb::options::{Acknowledgment, UpdateOptions, WriteConcern};
+use mongodb::Database;
 use serde::Serialize;
 
 use crate::api_types::ApiError;
 use crate::conf;
-use crate::types::{
-	Session,
-	SessionToken,
-	SessionTokenHash,
-};
+use crate::types::{Session, SessionToken, SessionTokenHash};
 
 #[derive(Debug)]
 pub struct Guest;
@@ -49,13 +26,11 @@ impl FromRequest for Guest {
 	type Future = future::Ready<Result<Self, Self::Error>>;
 
 	fn from_request(req: &HttpRequest, _payload: &mut actix_web::dev::Payload) -> Self::Future {
-		future::ready(
-			if req.headers().contains_key(header::AUTHORIZATION) {
-				Err(GuestRequired)
-			} else {
-				Ok(Guest)
-			}
-		)
+		future::ready(if req.headers().contains_key(header::AUTHORIZATION) {
+			Err(GuestRequired)
+		} else {
+			Ok(Guest)
+		})
 	}
 }
 
@@ -81,7 +56,8 @@ pub struct Authorization {
 }
 
 fn authorization_from_request(req: &HttpRequest) -> Result<Authorization, AuthenticationError> {
-	req.headers().get(header::AUTHORIZATION)
+	req.headers()
+		.get(header::AUTHORIZATION)
 		.and_then(|h| h.to_str().ok())
 		.and_then(|h| h.strip_prefix("Bearer "))
 		.and_then(|t| t.parse::<SessionToken>().ok())
@@ -110,13 +86,17 @@ impl FromRequest for AuthenticatedUser {
 	type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>>>>;
 
 	fn from_request(req: &HttpRequest, _payload: &mut actix_web::dev::Payload) -> Self::Future {
-		let db = req.app_data::<web::Data<Database>>().expect("app_data should include a database client").clone();
+		let db = req
+			.app_data::<web::Data<Database>>()
+			.expect("app_data should include a database client")
+			.clone();
 		let auth = authorization_from_request(req);
 
 		Box::pin(async move {
 			// TODO: request processing can take arbitrarily long, meaning operations might continue arbitrary long after an completed logout-all request. not ideal, but definitely not worth the overhead and restrictions of a request-wrapping transaction with MongoDB's causal consistency.
 			let session_query = doc! {"_id": {"$eq": to_bson(&auth?.session_id).unwrap()}};
-			let session = db.collection::<Session>("sessions")
+			let session = db
+				.collection::<Session>("sessions")
 				.find_one(session_query.clone(), None)
 				.await
 				.map_err(|err| {
@@ -128,8 +108,8 @@ impl FromRequest for AuthenticatedUser {
 			match SystemTime::now().duration_since(session.last_used.to_system_time()) {
 				Ok(t) if t >= conf::SESSION_MIN_TIME_BETWEEN_REFRESH => {
 					// refresh the session
-					match (
-						db.collection::<Session>("sessions")
+					match (db
+						.collection::<Session>("sessions")
 						.update_one(
 							session_query.clone(),
 							doc! {
@@ -140,14 +120,12 @@ impl FromRequest for AuthenticatedUser {
 							// TODO: is there way to specify that this write should not be retried?
 							UpdateOptions::builder()
 								.write_concern(
-									WriteConcern::builder()
-										.w(Acknowledgment::Nodes(1))
-										.build()
+									WriteConcern::builder().w(Acknowledgment::Nodes(1)).build(),
 								)
 								.build(),
 						)
-						.await
-					) {
+						.await)
+					{
 						Ok(update) => {
 							if update.matched_count != 1 {
 								// the session became invalid between the find and the refresh
@@ -168,9 +146,7 @@ impl FromRequest for AuthenticatedUser {
 				}
 			}
 
-			Ok(AuthenticatedUser {
-				id: session.user,
-			})
+			Ok(AuthenticatedUser { id: session.user })
 		})
 	}
 }
@@ -200,14 +176,13 @@ impl ResponseError for AuthenticationError {
 
 	fn error_response(&self) -> HttpResponse {
 		match self {
-			Self::Unauthenticated =>
-				HttpResponse::Unauthorized()
-					.insert_header(("WWW-Authenticate", r#"Bearer realm="user""#))
-					.content_type("application/json")
-					.body(r#"{"error":"Unauthenticated"}"#),
-			Self::Unexpected =>
-				HttpResponse::InternalServerError()
-					.body(r#"{"error":"Unexpected"}"#),
+			Self::Unauthenticated => HttpResponse::Unauthorized()
+				.insert_header(("WWW-Authenticate", r#"Bearer realm="user""#))
+				.content_type("application/json")
+				.body(r#"{"error":"Unauthenticated"}"#),
+			Self::Unexpected => {
+				HttpResponse::InternalServerError().body(r#"{"error":"Unexpected"}"#)
+			}
 		}
 	}
 }

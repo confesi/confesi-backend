@@ -2,10 +2,7 @@ use serde::Deserialize;
 use serde_json::from_str as from_json;
 
 #[derive(Deserialize)]
-struct Foo(
-	#[serde(with = "super")]
-	[u8; 2]
-);
+struct Foo(#[serde(with = "super")] [u8; 2]);
 
 #[test]
 fn test_correct_input() {
