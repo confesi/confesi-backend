@@ -1,18 +1,9 @@
-use std::future::{
-	Ready,
-	ready,
-};
-use actix_web::Error;
+use actix_web::dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform};
 use actix_web::error::ErrorBadRequest;
-use actix_web::dev::{
-	Service,
-	ServiceRequest,
-	ServiceResponse,
-	Transform,
-	forward_ready,
-};
 use actix_web::http::header;
+use actix_web::Error;
 use futures::future::Either;
+use std::future::{ready, Ready};
 
 /// Permits requests only with the specified `Host` header.
 #[derive(Clone, Copy, Debug)]
@@ -31,14 +22,10 @@ where
 	type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
 	fn new_transform(&self, service: S) -> Self::Future {
-		ready(
-			Ok(
-				HostCheckMiddleware {
-					permitted_host: self.0,
-					service,
-				}
-			)
-		)
+		ready(Ok(HostCheckMiddleware {
+			permitted_host: self.0,
+			service,
+		}))
 	}
 }
 
@@ -55,15 +42,14 @@ where
 {
 	type Response = ServiceResponse<B>;
 	type Error = Error;
-	type Future = Either<
-		Ready<Result<Self::Response, Self::Error>>,
-		S::Future,
-	>;
+	type Future = Either<Ready<Result<Self::Response, Self::Error>>, S::Future>;
 
 	forward_ready!(service);
 
 	fn call(&self, req: ServiceRequest) -> Self::Future {
-		if req.headers().get(header::HOST).map(|v| v.as_bytes()) == Some(self.permitted_host.as_bytes()) {
+		if req.headers().get(header::HOST).map(|v| v.as_bytes())
+			== Some(self.permitted_host.as_bytes())
+		{
 			Either::Right(self.service.call(req))
 		} else {
 			Either::Left(ready(Err(ErrorBadRequest("Invalid Host header"))))

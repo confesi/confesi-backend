@@ -1,19 +1,16 @@
-use mongodb::{bson::{
-	doc,
-    to_bson, Document,
-}};
-use log::{
-	error,
+use futures::StreamExt;
+use log::error;
+use mongodb::bson::{doc, to_bson, Document};
+
+use crate::{
+	api_types::{success, ApiResult, Failure},
+	auth::AuthenticatedUser,
+	to_unexpected,
+	types::{PosterFaculty, PosterYearOfStudy, School, User},
 };
-use futures::{StreamExt};
-
-
-use serde::{Deserialize, Serialize};
-use actix_web::{ put, web, get, delete, post };
+use actix_web::{delete, get, post, put, web};
 use mongodb::Database;
-use crate::{auth::{
-	AuthenticatedUser,
-}, api_types::{ApiResult, Failure, success}, types::{User, PosterYearOfStudy, PosterFaculty, School}, to_unexpected};
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 pub struct UpdatableProfileData {
@@ -43,17 +40,27 @@ pub async fn get_profile(
 	db: web::Data<Database>,
 	user: AuthenticatedUser,
 ) -> ApiResult<ProfileData, ()> {
-	let user = db.collection::<User>("users").find_one(doc! {"_id": {"$eq": user.id}}, None).await;
+	let user = db
+		.collection::<User>("users")
+		.find_one(doc! {"_id": {"$eq": user.id}}, None)
+		.await;
 	// Finds and returns the user profile data.
 	// Throws 400 if no account matches id, and 500 upon unknown find error.
 	match user {
 		Ok(possible_user) => match possible_user {
-			Some(user) => return success(ProfileData {year_of_study: user.year_of_study, faculty: user.faculty, school_id: user.school_id, username: user.username.into()}),
+			Some(user) => {
+				return success(ProfileData {
+					year_of_study: user.year_of_study,
+					faculty: user.faculty,
+					school_id: user.school_id,
+					username: user.username.into(),
+				})
+			}
 			None => return Err(Failure::BadRequest("no account matches this id")),
 		},
 		Err(err) => {
 			error!("Fetching user information failed: {}", err);
-			return Err(Failure::Unexpected)
+			return Err(Failure::Unexpected);
 		}
 	};
 }
@@ -73,35 +80,44 @@ pub async fn update_profile(
 	update_data: web::Json<UpdatableProfileData>,
 	user: AuthenticatedUser,
 ) -> ApiResult<(), ()> {
-
 	// Document to be updated.
 	let mut update_doc = Document::new();
 
 	// Update the [`faculty`] field.
-	update_doc.insert("faculty", to_bson(&update_data.faculty).map_err(to_unexpected!("Converting faculty to bson failed"))?);
+	update_doc.insert(
+		"faculty",
+		to_bson(&update_data.faculty)
+			.map_err(to_unexpected!("Converting faculty to bson failed"))?,
+	);
 
 	// Update the [`year_of_study`] field.
-	update_doc.insert("year_of_study", to_bson(&update_data.year_of_study).map_err(to_unexpected!("Converting year of study to bson failed"))?);
+	update_doc.insert(
+		"year_of_study",
+		to_bson(&update_data.year_of_study)
+			.map_err(to_unexpected!("Converting year of study to bson failed"))?,
+	);
 
 	if let Some(school_id) = &update_data.school_id {
-	// Check to see if a user's new proposed [`school_id`] is valid (and exists), before adding
-	// it to the [`update_doc`].
-	db.collection::<School>("schools")
-		.find_one(doc! {"_id": {"$eq": school_id}}, None)
-		.await
-		.map_err(to_unexpected!("validating school's existence failed"))?
-		.ok_or(Failure::BadRequest("invalid school id"))?;
-	update_doc.insert("school_id", school_id);
-}
+		// Check to see if a user's new proposed [`school_id`] is valid (and exists), before adding
+		// it to the [`update_doc`].
+		db.collection::<School>("schools")
+			.find_one(doc! {"_id": {"$eq": school_id}}, None)
+			.await
+			.map_err(to_unexpected!("validating school's existence failed"))?
+			.ok_or(Failure::BadRequest("invalid school id"))?;
+		update_doc.insert("school_id", school_id);
+	}
 
 	// Finds, updates, and returns a success-200 response.
 	// Throws 400 if no account matches id, and 500 upon unknown update error.
-	let user = db.collection::<User>("users")
+	let user = db
+		.collection::<User>("users")
 		.find_one_and_update(
 			doc! {"_id": {"$eq": user.id}},
 			doc! {"$set": update_doc},
 			None,
-		).await;
+		)
+		.await;
 	match user {
 		Ok(possible_user) => match possible_user {
 			Some(_) => return success(()),
@@ -109,7 +125,7 @@ pub async fn update_profile(
 		},
 		Err(err) => {
 			error!("Updating user information failed: {}", err);
-			return Err(Failure::Unexpected)
+			return Err(Failure::Unexpected);
 		}
 	};
 }
@@ -121,7 +137,8 @@ pub async fn delete_watched(
 	db: web::Data<Database>,
 	delete_school_ids: web::Json<Vec<String>>,
 ) -> ApiResult<(), ()> {
-	let to_be_deleted_schools = to_bson(&delete_school_ids).map_err(to_unexpected!("Converting schools to bson failed"))?;
+	let to_be_deleted_schools =
+		to_bson(&delete_school_ids).map_err(to_unexpected!("Converting schools to bson failed"))?;
 	let filter = doc! {"_id": {"$eq": user.id}};
 	let update = doc! { "$pull": { "watched_school_ids": { "$in": &to_be_deleted_schools } } };
 	db.collection::<User>("users")
@@ -141,50 +158,58 @@ pub async fn add_watched(
 	mut new_school_ids: web::Json<Vec<String>>,
 ) -> ApiResult<(), ()> {
 	new_school_ids.dedup();
-	let schools_bson = to_bson(&new_school_ids).map_err(to_unexpected!("Converting schools to bson failed"))?;
+	let schools_bson =
+		to_bson(&new_school_ids).map_err(to_unexpected!("Converting schools to bson failed"))?;
 
 	// Check if all passed school ids are valid
 
 	let filter = doc! { "_id": { "$in": &schools_bson } };
 
-	let possible_found_schools = db.collection::<School>("schools")
-			.find(filter, None)
-			.await;
+	let possible_found_schools = db.collection::<School>("schools").find(filter, None).await;
 
 	match possible_found_schools {
 		Ok(cursor) => {
 			let items_found = cursor.count().await;
-			if items_found != new_school_ids.len() {return Err(Failure::BadRequest("not all items provided are valid schools"))};
+			if items_found != new_school_ids.len() {
+				return Err(Failure::BadRequest(
+					"not all items provided are valid schools",
+				));
+			};
 		}
 		Err(err) => {
 			error!("Finding schools failed: {}", err);
-			return Err(Failure::Unexpected)
-		},
+			return Err(Failure::Unexpected);
+		}
 	};
 
-	let pipeline = vec![
-    doc! {
-        "$addFields": {
-            "watched_school_ids": {
-                "$setUnion": [ "$watched_school_ids", schools_bson ]
-            }
-        }
-    }
-	];
+	let pipeline = vec![doc! {
+		"$addFields": {
+			"watched_school_ids": {
+				"$setUnion": [ "$watched_school_ids", schools_bson ]
+			}
+		}
+	}];
 
 	let filter = doc! {"_id": user.id};
 
-	let possible_update_result = db.collection::<User>("users").update_one(filter, pipeline, None).await;
+	let possible_update_result = db
+		.collection::<User>("users")
+		.update_one(filter, pipeline, None)
+		.await;
 	match possible_update_result {
-		Ok(update_result) => if update_result.modified_count == 1 {
-			return success(())
-		} else {
-			return Err(Failure::BadRequest("too many watched universities or duplicates"))
+		Ok(update_result) => {
+			if update_result.modified_count == 1 {
+				return success(());
+			} else {
+				return Err(Failure::BadRequest(
+					"too many watched universities or duplicates",
+				));
+			}
 		}
 		Err(err) => {
 			error!("Updating user's watched schools failed: {}", err);
-			return Err(Failure::Unexpected)
-		},
+			return Err(Failure::Unexpected);
+		}
 	};
 }
 
@@ -199,12 +224,11 @@ pub struct SchoolDetail {
 pub async fn get_watched(
 	user: AuthenticatedUser,
 	db: web::Data<Database>,
-) -> ApiResult<Box<Vec<String>>, ()>{
-	let user = db.collection::<User>("users")
-		.find_one(
-		doc! {"_id": {"$eq": user.id}},
-		None
-	).await;
+) -> ApiResult<Box<Vec<String>>, ()> {
+	let user = db
+		.collection::<User>("users")
+		.find_one(doc! {"_id": {"$eq": user.id}}, None)
+		.await;
 	match user {
 		Ok(possible_user) => match possible_user {
 			Some(user) => return success(Box::new(user.watched_school_ids)),
@@ -212,7 +236,7 @@ pub async fn get_watched(
 		},
 		Err(err) => {
 			error!("Getting list of watched schools failed: {}", err);
-			return Err(Failure::Unexpected)
-		},
+			return Err(Failure::Unexpected);
+		}
 	};
 }

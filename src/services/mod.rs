@@ -2,36 +2,19 @@ pub mod auth;
 pub mod posts;
 pub mod profile;
 
-use actix_web::{
-	HttpRequest,
-	get,
-};
 use actix_web::web;
+use actix_web::{get, HttpRequest};
 use futures::TryStreamExt;
-use log::{
-	error,
-	info,
-	warn,
-};
+use log::{error, info, warn};
 use maxminddb::geoip2;
-use mongodb::Database;
-use mongodb::bson::{
-	Document,
-	doc,
-};
 use mongodb::bson::document::ValueAccessError;
+use mongodb::bson::{doc, Document};
+use mongodb::Database;
 use serde::Serialize;
 
-use crate::{
-	GeoIpReader,
-	to_unexpected,
-};
-use crate::api_types::{
-	ApiResult,
-	Failure,
-	success,
-};
+use crate::api_types::{success, ApiResult, Failure};
 use crate::types::School;
+use crate::{to_unexpected, GeoIpReader};
 
 #[derive(Serialize)]
 pub struct SchoolListing {
@@ -103,12 +86,11 @@ pub async fn schools_list(
 				Ok(SchoolListing {
 					id: String::from(doc.get_str("_id")?),
 					name: String::from(doc.get_str("name")?),
-					distance:
-						if doc.is_null("distance") {
-							None
-						} else {
-							Some(doc.get_f64("distance")? as f32)
-						},
+					distance: if doc.is_null("distance") {
+						None
+					} else {
+						Some(doc.get_f64("distance")? as f32)
+					},
 				})
 			})
 			.try_collect::<Vec<Result<SchoolListing, ValueAccessError>>>()
@@ -116,6 +98,6 @@ pub async fn schools_list(
 			.map_err(to_unexpected!("Reading list of schools cursor failed"))?
 			.into_iter()
 			.collect::<Result<Box<[SchoolListing]>, _>>()
-			.map_err(to_unexpected!("Deserializing school listing failed"))?
+			.map_err(to_unexpected!("Deserializing school listing failed"))?,
 	)
 }
