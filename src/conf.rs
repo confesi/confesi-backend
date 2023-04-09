@@ -28,3 +28,6 @@ pub const PERMITTED_ORIGINS: &[&str] = &["https://app.invalid", "http://api-docs
 pub const TRENDING_EPOCH: i64 = 1640995200; // 2022-01-01T00:00:00Z
 
 pub const TRENDING_DECAY: f64 = 103616.32918473207; // 45000 ln 10
+
+/// How long before the email verification link expires, in seconds.
+pub const EMAIL_VERIFICATION_LINK_EXPIRATION: i64 = 60 * 10; // 10 minutes

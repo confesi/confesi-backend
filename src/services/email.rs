@@ -6,13 +6,17 @@ use regex::Regex;
 use crate::{
 	api_types::{success, ApiResult, Failure},
 	auth::AuthenticatedUser,
-	conf::HOST,
-	masked_oid::{self, MaskedObjectId, MaskingKey},
+	conf::{EMAIL_VERIFICATION_LINK_EXPIRATION, HOST},
+	masked_oid::{MaskedObjectId, MaskingKey},
 	to_unexpected,
 	types::{School, User},
 };
-use actix_web::{get, post, web};
-use jsonwebtoken::{decode, encode, errors::Error, DecodingKey, EncodingKey, Header, Validation};
+use actix_web::{get, post, web, HttpResponse};
+use jsonwebtoken::{
+	decode, encode,
+	errors::{Error, ErrorKind},
+	DecodingKey, EncodingKey, Header, Validation,
+};
 use mongodb::Database;
 use serde::{Deserialize, Serialize};
 
@@ -54,7 +58,7 @@ pub async fn send_verification_email(
 ) -> ApiResult<String, ()> {
 	// validate the email
 	let email_matcher = Regex::new(
-		r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
+		r"(?i)^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
 	)
 	.unwrap();
 	if (!email_matcher.is_match(&email)) {
@@ -101,19 +105,13 @@ pub async fn send_verification_email(
 	let claims = Claims {
 		masked_user_id: masking_key.mask(&user.id),
 		email: email.to_string(),
-		exp: (chrono::Utc::now() + chrono::Duration::seconds(60)).timestamp() as usize,
+		exp: (chrono::Utc::now() + chrono::Duration::seconds(EMAIL_VERIFICATION_LINK_EXPIRATION))
+			.timestamp() as usize,
 	};
 
 	match claims.create_jwt() {
 		Ok(token) => {
 			println!("Token: {}", token);
-			let decoded = Claims::decode_jwt(&token).unwrap();
-			println!(
-				"Decoded: {:?}",
-				masking_key.unmask(&decoded.masked_user_id).map_err(
-					|masked_oid::PaddingError| Failure::BadRequest("bad masked sequential id"),
-				)?,
-			);
 			success(format!("http://{}/verify/{}/", HOST, token)) // todo: send email here
 		}
 		Err(err) => {
@@ -123,21 +121,44 @@ pub async fn send_verification_email(
 	}
 }
 
-// todo: return simple HTML disclosing results?
+fn gen_html(content: &str) -> HttpResponse {
+	let html = format!(
+		"<html>
+					<head>
+							<title>Email verification</title>
+					</head>
+					<body>
+							<h1 style='text-align: center;'>{}</h1>
+					</body>
+			</html>",
+		content
+	);
+	HttpResponse::Ok()
+		.content_type("text/html; charset=utf-8")
+		.body(html)
+}
+
 #[get("/verify/{token}/")]
 pub async fn verify_link(
 	db: web::Data<Database>,
 	token: web::Path<String>,
 	masking_key: web::Data<&'static MaskingKey>,
-) -> ApiResult<(), ()> {
-	// todo: when verifying, do one last check to ensure the email isn't already in use (potential race condition between 2 people verifying the same email). does it need to be atomic?
-	let claims = Claims::decode_jwt(&token).map_err(|_| Failure::BadRequest("invalid token"))?;
-	let user_id = masking_key
-		.unmask(&claims.masked_user_id)
-		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked sequential id"))?;
+) -> HttpResponse {
+	// todo: will there be a race condition that could cause multiple users to be verified with the same email?
+	let claims = match Claims::decode_jwt(&token) {
+		Ok(claims) => claims,
+		Err(err) => match err.kind() {
+			ErrorKind::ExpiredSignature => return gen_html("Verification link expired 🥶"),
+			_ => return gen_html("Malformed verification link 🤨"),
+		},
+	};
+	let user_id = match masking_key.unmask(&claims.masked_user_id) {
+		Ok(user_id) => user_id,
+		Err(_) => return gen_html("Malformed verification link 🤨"),
+	};
 
 	// is the email already in use?
-	let potential_user = db
+	let potential_user = match db
 		.collection::<User>("users")
 		.find_one(
 			doc! {
@@ -146,14 +167,21 @@ pub async fn verify_link(
 			None,
 		)
 		.await
-		.map_err(to_unexpected!("finding a user with this email failed"))?;
+	{
+		Ok(potential_user) => potential_user,
+		Err(err) => {
+			error!("Error finding a user with this email: {}", err);
+			return gen_html("Internal server error validating email 🥲");
+		}
+	};
 
 	if let Some(_) = potential_user {
-		return Err(Failure::BadRequest("email already in use"));
+		return gen_html("Email already verified 😅");
 	}
 
 	// update user with verified and email_verified
-	db.collection::<User>("users")
+	match db
+		.collection::<User>("users")
 		.update_one(
 			doc! {
 				"_id": user_id
@@ -167,7 +195,13 @@ pub async fn verify_link(
 			None,
 		)
 		.await
-		.map_err(to_unexpected!("updating user's email failed"))?;
-
-	success(())
+	{
+		Ok(_) => gen_html("Email verified successfully ✅"),
+		Err(err) => {
+			error!("Error updating user's email: {}", err);
+			return gen_html("Internal server error validating email 🥲");
+		}
+	}
 }
+
+// todo: update docs for new routes and alterations to old routes
