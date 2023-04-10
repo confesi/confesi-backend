@@ -57,6 +57,28 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 				.build(),
 			None,
 		),
+		users.create_index(
+			IndexModel::builder()
+				.keys(doc! {"personal_email": 1})
+				.options(
+					IndexOptions::builder()
+						.unique(true)
+						.build()
+				)
+				.build(),
+			None,
+		),
+		users.create_index(
+			IndexModel::builder()
+				.keys(doc! {"school_email": 1})
+				.options(
+					IndexOptions::builder()
+						.unique(true)
+						.build()
+				)
+				.build(),
+			None,
+		),
 		sessions.create_index(IndexModel::builder().keys(doc! {"user": 1}).build(), None,),
 		sessions.create_index(
 			IndexModel::builder()

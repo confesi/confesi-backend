@@ -52,6 +52,14 @@ impl fmt::Display for UsernameInvalid {
 	}
 }
 
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PrimaryEmail {
+	Personal,
+	School,
+	NoEmail
+}
+
 #[derive(Deserialize)]
 pub struct User {
 	#[serde(rename = "_id")]
@@ -65,10 +73,12 @@ pub struct User {
 	pub school_id: String,
 	// Watched universities of the user
 	pub watched_school_ids: Vec<String>,
-	/// The user's email address.
-	pub email: Option<String>, // TODO: should this be masked?
-	/// If a user has a verified email address
-	pub email_verified: bool,
+	/// The user's personal email address.
+	pub personal_email: Option<String>, // TODO: should this be masked?
+	/// The user's personal email address.
+	pub school_email: Option<String>, // TODO: should this be masked?
+	/// Ther user's preferred email address.
+	pub primary_email: PrimaryEmail,
 }
 
 #[derive(Deserialize, Serialize)]

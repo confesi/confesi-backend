@@ -11,6 +11,7 @@ use serde_with::{serde_as, DisplayFromStr};
 use crate::api_types::{failure, success, ApiError, ApiResult, Failure};
 use crate::auth::{AuthenticatedUser, AuthenticationError, Authorization, Guest};
 use crate::to_unexpected;
+use crate::types::PrimaryEmail;
 use crate::types::{
 	PosterFaculty, PosterYearOfStudy, School, Session, SessionToken, User, Username,
 };
@@ -154,10 +155,11 @@ pub async fn register(
 			"username": to_bson(&new_user.username).map_err(to_unexpected!("Converting username to bson failed"))?,
 			"watched_school_ids": to_bson::<Vec<String>>(&vec![]).map_err(to_unexpected!("Converting empty vector to bson failed"))?,
 			"school_id": &new_user.school_id,
-			"email_verified": false,
+			"primary_email": to_bson(&PrimaryEmail::NoEmail).map_err(to_unexpected!("Converting primary email to bson failed"))?,
 		},
 		None
 	);
+
 
 	match op.await {
 		Ok(result) => {

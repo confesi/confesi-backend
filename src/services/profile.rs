@@ -52,7 +52,10 @@ pub async fn get_profile(
 		Ok(possible_user) => match possible_user {
 			Some(user) => {
 				return success(ProfileData {
-					verified: user.email_verified,
+					verified: match user.school_email {
+						Some(_) => true,
+						None => false,
+				},
 					year_of_study: user.year_of_study,
 					faculty: user.faculty,
 					school_id: user.school_id,
