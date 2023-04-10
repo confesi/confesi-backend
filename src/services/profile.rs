@@ -6,7 +6,7 @@ use crate::{
 	api_types::{success, ApiResult, Failure},
 	auth::AuthenticatedUser,
 	to_unexpected,
-	types::{PosterFaculty, PosterYearOfStudy, School, User},
+	types::{PosterFaculty, PosterYearOfStudy, School, User, PrimaryEmail},
 };
 use actix_web::{delete, get, post, put, web};
 use mongodb::Database;
@@ -34,6 +34,12 @@ pub struct ProfileData {
 	pub username: String,
 	/// If the user is verified (via their school email)
 	pub verified: bool,
+	/// School email of user
+	pub school_email: Option<String>,
+	/// Personal email of user
+	pub personal_email: Option<String>,
+	/// Primary email
+	pub primary_email: PrimaryEmail,
 }
 
 /// Fetches user profile information.
@@ -52,6 +58,9 @@ pub async fn get_profile(
 		Ok(possible_user) => match possible_user {
 			Some(user) => {
 				return success(ProfileData {
+					personal_email: user.personal_email,
+					school_email: user.school_email.to_owned(),
+					primary_email: user.primary_email,
 					verified: match user.school_email {
 						Some(_) => true,
 						None => false,

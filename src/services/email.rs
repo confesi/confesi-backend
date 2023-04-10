@@ -1,6 +1,8 @@
 use chrono;
 use log::error;
 use mongodb::bson::{doc, to_bson};
+use mongodb::options::{FindOneAndUpdateOptions, UpdateOptions};
+use mongodb::Client as MongoClient;
 use regex::Regex;
 
 use crate::{
@@ -11,19 +13,26 @@ use crate::{
 	to_unexpected,
 	types::{School, User},
 };
-use actix_web::{get, post, put, web, HttpResponse};
+use actix_web::{delete, get, post, put, web, HttpResponse};
 use jsonwebtoken::{
 	decode, encode,
 	errors::{Error, ErrorKind},
 	DecodingKey, EncodingKey, Header, Validation,
 };
 use mongodb::Database;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
-struct Claims {
+struct VerificationClaims {
 	masked_user_id: MaskedObjectId,
 	email: String,
+	email_type: EmailType,
+	exp: usize,
+}
+
+#[derive(Serialize, Deserialize)]
+struct DeletionClaims {
+	masked_user_id: MaskedObjectId,
 	email_type: EmailType,
 	exp: usize,
 }
@@ -38,17 +47,28 @@ trait JWT {
 		Self: Sized;
 }
 
-impl JWT for Claims {
-	fn create_jwt(&self) -> Result<String, Error> {
-		let key = EncodingKey::from_secret("secret".as_ref());
-		encode(&Header::default(), self, &key).map_err(|err| err.into())
-	}
+// impl JWT for Claims {
+// 	fn create_jwt(&self) -> Result<String, Error> {
+// 		let key = EncodingKey::from_secret("secret".as_ref());
+// 		encode(&Header::default(), self, &key).map_err(|err| err.into())
+// 	}
 
-	fn decode_jwt(token: &str) -> Result<Self, Error> {
-		let key = DecodingKey::from_secret("secret".as_ref());
-		let decoded = decode::<Self>(token, &key, &Validation::default())?;
-		Ok(decoded.claims)
-	}
+// 	fn decode_jwt(token: &str) -> Result<Self, Error> {
+// 		let key = DecodingKey::from_secret("secret".as_ref());
+// 		let decoded = decode::<Self>(token, &key, &Validation::default())?;
+// 		Ok(decoded.claims)
+// 	}
+// }
+
+fn decode_jwt<T: DeserializeOwned>(token: &str, secret: &[u8]) -> Result<T, Error> {
+	let key = DecodingKey::from_secret(secret);
+	let decoded = decode::<T>(token, &key, &Validation::default())?;
+	Ok(decoded.claims)
+}
+
+fn create_jwt<T: Serialize>(claims: &T, secret: &[u8]) -> Result<String, Error> {
+	let key = EncodingKey::from_secret(secret);
+	encode(&Header::default(), claims, &key).map_err(|err| err.into())
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -64,6 +84,7 @@ pub struct VerificationRequest {
 	email_type: EmailType,
 }
 
+// todo: if the user has already verified the address they're putting into another field, skip email verification?
 #[post("/verify")]
 pub async fn send_verification_email(
 	db: web::Data<Database>,
@@ -131,7 +152,7 @@ pub async fn send_verification_email(
 
 	// todo: check if the user already has a primary/school email, if so, we need to update it
 
-	let claims = Claims {
+	let claims = VerificationClaims {
 		masked_user_id: masking_key.mask(&user.id),
 		email: verification.email.to_string(),
 		email_type: verification.email_type.clone(),
@@ -139,10 +160,9 @@ pub async fn send_verification_email(
 			.timestamp() as usize,
 	};
 
-	match claims.create_jwt() {
+	match create_jwt(&claims, "secret".as_ref()) {
 		Ok(token) => {
-			println!("Token: {}", token);
-			success(format!("http://{}/verify/{}/", HOST, token)) // todo: send email here
+			success(format!("http://{}/verify_creation/{}/", HOST, token)) // todo: send email here
 		}
 		Err(err) => {
 			error!("Error creating JWT: {}", err);
@@ -168,13 +188,13 @@ fn gen_html(content: &str) -> HttpResponse {
 		.body(html)
 }
 
-#[get("/verify/{token}/")]
-pub async fn verify_link(
+#[get("/verify_creation/{token}/")]
+pub async fn verify_email(
 	db: web::Data<Database>,
 	token: web::Path<String>,
 	masking_key: web::Data<&'static MaskingKey>,
 ) -> HttpResponse {
-	let claims = match Claims::decode_jwt(&token) {
+	let claims = match decode_jwt::<VerificationClaims>(&token, "secret".as_ref()) {
 		Ok(claims) => claims,
 		Err(err) => match err.kind() {
 			ErrorKind::ExpiredSignature => {
@@ -256,7 +276,9 @@ pub async fn change_primary_email(
 	{
 		Ok(result) => {
 			if result.matched_count == 0 {
-				Err(Failure::BadRequest("this email type doesn't exist for this user"))
+				Err(Failure::BadRequest(
+					"this email type doesn't exist for this user",
+				))
 			} else if result.modified_count == 1 {
 				success(())
 			} else {
@@ -265,5 +287,95 @@ pub async fn change_primary_email(
 			}
 		}
 		Err(_) => Err(Failure::Unexpected),
+	}
+}
+
+/// Sends a verification email to the address that is to be deleted
+#[delete("/email")]
+pub async fn delete_email(
+	user: AuthenticatedUser,
+	email_type: web::Json<EmailType>,
+	masking_key: web::Data<&'static MaskingKey>,
+) -> ApiResult<String, ()> {
+	let claims = DeletionClaims {
+		masked_user_id: masking_key.mask(&user.id),
+		email_type: email_type.into_inner(),
+		exp: (chrono::Utc::now() + chrono::Duration::seconds(EMAIL_VERIFICATION_LINK_EXPIRATION))
+			.timestamp() as usize,
+	};
+	match create_jwt(&claims, "secret".as_ref()) {
+		Ok(token) => {
+			success(format!("http://{}/verify_deletion/{}/", HOST, token)) // todo: send email here
+		}
+		Err(err) => {
+			error!("Error creating JWT: {}", err);
+			return Err(Failure::Unexpected);
+		}
+	}
+}
+
+#[get("/verify_deletion/{token}/")]
+pub async fn verify_deleting_email(
+	db: web::Data<Database>,
+	mongo_client: web::Data<MongoClient>,
+	token: web::Path<String>,
+	masking_key: web::Data<&'static MaskingKey>,
+) -> HttpResponse {
+	let claims = match decode_jwt::<DeletionClaims>(&token, "secret".as_ref()) {
+		Ok(claims) => claims,
+		Err(err) => match err.kind() {
+			ErrorKind::ExpiredSignature => {
+				return gen_html("Verification link expired, please send another email 🥶")
+			}
+			_ => return gen_html("Malformed verification link 🤨"),
+		},
+	};
+	let user_id = match masking_key.unmask(&claims.masked_user_id) {
+		Ok(user_id) => user_id,
+		Err(_) => return gen_html("Malformed verification link 🤨"),
+	};
+
+	let (email_type, opposite_type_label) = match claims.email_type {
+		EmailType::Personal => ("personal_email", "school"),
+		EmailType::School => ("school_email", "personal"),
+	};
+
+	let update_options = FindOneAndUpdateOptions::builder()
+		.return_document(mongodb::options::ReturnDocument::After)
+		.build();
+
+	let updated_doc = db
+		.collection::<User>("users")
+		.find_one_and_update(
+			doc! { "_id": user_id },
+			doc! { "$set": { email_type: null , "primary_email": opposite_type_label} },
+			Some(update_options),
+		)
+		.await;
+
+	match updated_doc {
+		Ok(doc) => {
+			if let Some(user) = doc {
+				if user.personal_email.is_none() && user.school_email.is_none() {
+					let second_update = db
+						.collection::<User>("users")
+						.find_one_and_update(
+							doc! { "_id": user_id },
+							doc! { "$set": { "primary_email": "no-email" } },
+							None,
+						)
+						.await;
+					match second_update {
+						Ok(_) => return gen_html("Email deleted 🗑"),
+						Err(_) => return gen_html("Error deleting email, please try again later 😳"),
+					}
+				} else {
+					return gen_html("do nothing all good");
+				}
+			} else {
+				return gen_html("error");
+			}
+		}
+		Err(_) => return gen_html("error"),
 	}
 }

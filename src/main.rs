@@ -253,9 +253,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::get_watched)
 			.service(services::profile::add_watched)
 			.service(services::profile::delete_watched)
-			.service(services::email::verify_link)
+			.service(services::email::verify_email)
 			.service(services::email::send_verification_email)
 			.service(services::email::change_primary_email)
+			.service(services::email::delete_email)
+			.service(services::email::verify_deleting_email)
 	})
 	.bind(("0.0.0.0", 3000))?
 	.run()
