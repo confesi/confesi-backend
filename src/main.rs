@@ -8,6 +8,7 @@ mod masked_oid;
 mod middleware;
 mod services;
 mod types;
+mod util;
 
 use std::env;
 use std::error::Error;

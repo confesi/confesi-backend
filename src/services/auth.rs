@@ -48,13 +48,14 @@ use crate::types::{
 	User,
 	Username,
 };
+use crate::util::hash;
 
 #[derive(Deserialize)]
 pub struct Credentials {
 	username: Username,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct NewUser {
 	username: Username,
@@ -64,6 +65,8 @@ pub struct NewUser {
 	pub faculty: Option<PosterFaculty>,
 	// School of the poster.
 	pub school_id: String,
+	pub email: Option<String>,
+	pub password: String,
 }
 
 #[serde_as]
@@ -179,6 +182,10 @@ pub async fn register(
 		.map_err(to_unexpected!("validating school's existence failed"))?
 		.ok_or(Failure::BadRequest("invalid school id"))?;
 
+	// hash and save
+	let hashed_password = hash::hash_password(&new_user.password)
+		.map_err(to_unexpected!("[ERROR] hasing user password"))?;
+
 	let users = db.collection::<Document>("users");
 
 	let op = users.insert_one(
@@ -188,6 +195,8 @@ pub async fn register(
 			"username": to_bson(&new_user.username).map_err(to_unexpected!("Converting username to bson failed"))?,
 			"watched_school_ids": to_bson::<Vec<String>>(&vec![]).map_err(to_unexpected!("Converting empty vector to bson failed"))?,
 			"school_id": &new_user.school_id,
+			"email": &new_user.email,
+			"password": hashed_password,
 		},
 		None
 	);
