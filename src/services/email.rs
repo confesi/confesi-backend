@@ -9,9 +9,9 @@ use crate::{
 	conf::{EMAIL_VERIFICATION_LINK_EXPIRATION, HOST},
 	masked_oid::{MaskedObjectId, MaskingKey},
 	to_unexpected,
-	types::{PrimaryEmail, School, User},
+	types::{School, User},
 };
-use actix_web::{get, post, web, HttpResponse};
+use actix_web::{get, post, put, web, HttpResponse};
 use jsonwebtoken::{
 	decode, encode,
 	errors::{Error, ErrorKind},
@@ -29,6 +29,7 @@ struct Claims {
 }
 
 // todo: use .env for JWT secrets?
+// todo: update docs for new routes and alterations to old routes
 
 trait JWT {
 	fn create_jwt(&self) -> Result<String, Error>;
@@ -123,7 +124,9 @@ pub async fn send_verification_email(
 		.map_err(to_unexpected!("finding a user with this email failed"))?;
 
 	if let Some(_) = potential_user {
-		return Err(Failure::BadRequest("email already in use for this email type"));
+		return Err(Failure::BadRequest(
+			"email already in use for this email type",
+		));
 	}
 
 	// todo: check if the user already has a primary/school email, if so, we need to update it
@@ -225,8 +228,42 @@ pub async fn verify_link(
 				gen_html("Email already verified 😅")
 			}
 		}
-		Err(_) => gen_html("Error verifying email, please try again later 😳")
+		Err(_) => gen_html("Error verifying email, please try again later 😳"),
 	}
 }
 
-// todo: update docs for new routes and alterations to old routes
+// todo: add what type of primary email a user has to their account and what it is so they can fetch it
+
+#[put("/email")]
+pub async fn change_primary_email(
+	db: web::Data<Database>,
+	user: AuthenticatedUser,
+	email_type: web::Json<EmailType>,
+) -> ApiResult<(), ()> {
+	let (not_null_field, update_name) = match &email_type.into_inner() {
+		EmailType::Personal => ("personal_email", "personal"),
+		EmailType::School => ("school_email", "school"),
+	};
+
+	match db
+		.collection::<User>("users")
+		.update_one(
+			doc! {"_id": user.id, not_null_field: { "$ne": null }}, // query
+			doc! {"$set": {"primary_email": update_name}},          // update
+			None,
+		)
+		.await
+	{
+		Ok(result) => {
+			if result.matched_count == 0 {
+				Err(Failure::BadRequest("this email type doesn't exist for this user"))
+			} else if result.modified_count == 1 {
+				success(())
+			} else {
+				println!("already changed");
+				success(())
+			}
+		}
+		Err(_) => Err(Failure::Unexpected),
+	}
+}
