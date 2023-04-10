@@ -46,7 +46,7 @@ dependencies = [
  "actix-tls",
  "actix-utils",
  "ahash",
- "base64",
+ "base64 0.13.0",
  "bitflags",
  "bytes",
  "bytestring",
@@ -278,6 +278,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
+name = "base64"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
+
+[[package]]
+name = "bcrypt"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9df288bec72232f78c1ec5fe4e8f1d108aa0265476e93097593c803c8c02062a"
+dependencies = [
+ "base64 0.21.0",
+ "blowfish",
+ "getrandom",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -302,13 +321,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "blowfish"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e412e2cd0f2b2d93e02543ceae7917b3c70331573df19ee046bcbc35e45e87d7"
+dependencies = [
+ "byteorder",
+ "cipher",
+]
+
+[[package]]
 name = "bson"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a24ecf39f5a314493ede1bb015984735d41aa6aedb59cafb95492d40cd893330"
 dependencies = [
  "ahash",
- "base64",
+ "base64 0.13.0",
  "hex",
  "indexmap",
  "lazy_static",
@@ -325,6 +354,12 @@ name = "bumpalo"
 version = "3.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37ccbd214614c6783386c1af30caf03192f17891059cecc394b4fb119e363de3"
+
+[[package]]
+name = "byteorder"
+version = "1.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "bytes"
@@ -383,7 +418,8 @@ dependencies = [
  "actix-cors",
  "actix-web",
  "aes",
- "base64",
+ "base64 0.13.0",
+ "bcrypt",
  "blake2",
  "env_logger",
  "futures",
@@ -983,7 +1019,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28f3943e379e9dcaaab9dc319c308a8caaf9e7ff083c6838dff740afbba59df7"
 dependencies = [
  "async-trait",
- "base64",
+ "base64 0.13.0",
  "bitflags",
  "bson",
  "chrono",
@@ -1290,7 +1326,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ee86d63972a7c661d1536fefe8c3c8407321c3df668891286de28abcd087360"
 dependencies = [
- "base64",
+ "base64 0.13.0",
 ]
 
 [[package]]
@@ -1971,3 +2007,9 @@ checksum = "0120db82e8a1e0b9fb3345a539c478767c0048d842860994d96113d5b667bd69"
 dependencies = [
  "winapi",
 ]
+
+[[package]]
+name = "zeroize"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a0956f1ba7c7909bfb66c2e9e4124ab6f6482560f6628b5aaeba39207c9aad9"
