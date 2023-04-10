@@ -214,6 +214,14 @@ paths:
                     type: string
                   username:
                     type: string
+                  verified:
+                    type: boolean
+                  school_email:
+                    type: string
+                  personal_email:
+                    type: string
+                  primary_email:
+                    type: string
         '400':
             content:
               application/json:

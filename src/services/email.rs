@@ -68,6 +68,7 @@ pub struct VerificationRequest {
 // todo: if the user has already verified the address they're putting into another field, skip email verification?
 #[post("/verify")]
 pub async fn send_verification_email(
+	jwt_secret: web::Data<Vec<u8>>,
 	db: web::Data<Database>,
 	masking_key: web::Data<&'static MaskingKey>,
 	user: AuthenticatedUser,
@@ -164,7 +165,7 @@ pub async fn send_verification_email(
 			.timestamp() as usize,
 	};
 
-	match create_jwt(&claims, "secret".as_ref()) {
+	match create_jwt(&claims, jwt_secret.as_ref()) {
 		Ok(token) => {
 			success(format!("http://{}/verify_creation/{}/", HOST, token)) // todo: send email here
 		}
@@ -194,11 +195,12 @@ fn gen_html(content: &str) -> HttpResponse {
 
 #[get("/verify_creation/{token}/")]
 pub async fn verify_email(
+	jwt_secret: web::Data<Vec<u8>>,
 	db: web::Data<Database>,
 	token: web::Path<String>,
 	masking_key: web::Data<&'static MaskingKey>,
 ) -> HttpResponse {
-	let claims = match decode_jwt::<VerificationClaims>(&token, "secret".as_ref()) {
+	let claims = match decode_jwt::<VerificationClaims>(&token, jwt_secret.as_ref()) {
 		Ok(claims) => claims,
 		Err(err) => match err.kind() {
 			ErrorKind::ExpiredSignature => {
@@ -305,6 +307,7 @@ pub async fn change_primary_email(
 /// Sends a verification email to the address that is to be deleted
 #[delete("/email")]
 pub async fn delete_email(
+	jwt_secret: web::Data<Vec<u8>>,
 	user: AuthenticatedUser,
 	email_type: web::Json<EmailType>,
 	masking_key: web::Data<&'static MaskingKey>,
@@ -315,7 +318,7 @@ pub async fn delete_email(
 		exp: (chrono::Utc::now() + chrono::Duration::seconds(EMAIL_VERIFICATION_LINK_EXPIRATION))
 			.timestamp() as usize,
 	};
-	match create_jwt(&claims, "secret".as_ref()) {
+	match create_jwt(&claims, jwt_secret.get_ref()) {
 		Ok(token) => {
 			success(format!("http://{}/verify_deletion/{}/", HOST, token)) // todo: send email here
 		}
@@ -329,11 +332,12 @@ pub async fn delete_email(
 #[get("/verify_deletion/{token}/")]
 pub async fn verify_deleting_email(
 	db: web::Data<Database>,
+	jwt_secret: web::Data<Vec<u8>>,
 	mongo_client: web::Data<MongoClient>,
 	token: web::Path<String>,
 	masking_key: web::Data<&'static MaskingKey>,
 ) -> HttpResponse {
-	let claims = match decode_jwt::<DeletionClaims>(&token, "secret".as_ref()) {
+	let claims = match decode_jwt::<DeletionClaims>(&token, jwt_secret.as_ref()) {
 		Ok(claims) => claims,
 		Err(err) => match err.kind() {
 			ErrorKind::ExpiredSignature => {
