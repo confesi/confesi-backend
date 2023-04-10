@@ -39,26 +39,7 @@ struct DeletionClaims {
 
 // todo: use .env for JWT secrets?
 // todo: update docs for new routes and alterations to old routes
-
-trait JWT {
-	fn create_jwt(&self) -> Result<String, Error>;
-	fn decode_jwt(token: &str) -> Result<Self, Error>
-	where
-		Self: Sized;
-}
-
-// impl JWT for Claims {
-// 	fn create_jwt(&self) -> Result<String, Error> {
-// 		let key = EncodingKey::from_secret("secret".as_ref());
-// 		encode(&Header::default(), self, &key).map_err(|err| err.into())
-// 	}
-
-// 	fn decode_jwt(token: &str) -> Result<Self, Error> {
-// 		let key = DecodingKey::from_secret("secret".as_ref());
-// 		let decoded = decode::<Self>(token, &key, &Validation::default())?;
-// 		Ok(decoded.claims)
-// 	}
-// }
+// todo: will the jwts work multiple times if you use them fast enough? how do I "expire" them after one use?
 
 fn decode_jwt<T: DeserializeOwned>(token: &str, secret: &[u8]) -> Result<T, Error> {
 	let key = DecodingKey::from_secret(secret);
@@ -128,25 +109,48 @@ pub async fn send_verification_email(
 			.ok_or(Failure::BadRequest("invalid school domain"))?;
 	}
 
-	let matching_user = match verification.email_type {
-		EmailType::Personal => doc! {
-			"personal_email": &verification.email
-		},
-		EmailType::School => doc! {
-			"school_email": &verification.email
-		},
+	// is the email already in use?
+	if matches!(
+		db.collection::<User>("users")
+			.find_one(
+				doc! {
+						"$or": [
+								{ "personal_email": &verification.email },
+								{ "school_email": &verification.email }
+						]
+				},
+				None
+			)
+			.await
+			.map_err(to_unexpected!("finding a user with these emails failed"))?,
+		Some(_)
+	) {
+		return Err(Failure::BadRequest("email already in use"));
+	}
+
+	let empty_field_name = match &verification.email_type {
+		EmailType::Personal => "personal_email",
+		EmailType::School => "school_email",
 	};
 
-	// is the email already in use?
-	let potential_user = db
-		.collection::<User>("users")
-		.find_one(matching_user, None)
-		.await
-		.map_err(to_unexpected!("finding a user with this email failed"))?;
-
-	if let Some(_) = potential_user {
+	// does the user already have an email of this type?
+	if matches!(
+		db.collection::<User>("users")
+			.find_one(
+				doc! {
+						"$and": [
+								{"_id": user.id},
+								{empty_field_name: {"$eq": null}}
+						]
+				},
+				None
+			)
+			.await
+			.map_err(to_unexpected!("finding a user with THIS TODO"))?,
+		None
+	) {
 		return Err(Failure::BadRequest(
-			"email already in use for this email type",
+			"either your account doesn't exist, or you already have an email of this type",
 		));
 	}
 
@@ -229,12 +233,20 @@ pub async fn verify_email(
 		},
 	};
 
+	let empty_field_name = match claims.email_type {
+		EmailType::Personal => "personal_email",
+		EmailType::School => "school_email",
+	};
+
 	// update user with newly verified email
 	match db
 		.collection::<User>("users")
 		.update_one(
 			doc! {
-				"_id": user_id
+					"$and": [
+							{"_id": user_id},
+							{empty_field_name: {"$eq": null}}
+					]
 			},
 			update_doc,
 			None,
@@ -242,7 +254,7 @@ pub async fn verify_email(
 		.await
 	{
 		Ok(result) => {
-			if result.modified_count == 1 {
+		 if result.modified_count == 1 {
 				gen_html("Email verified ✅")
 			} else {
 				gen_html("Email already verified 😅")
@@ -344,12 +356,25 @@ pub async fn verify_deleting_email(
 		.return_document(mongodb::options::ReturnDocument::After)
 		.build();
 
+	// start session
+	let mut session = match mongo_client.start_session(None).await {
+		Ok(session) => session,
+		Err(_) => return gen_html("Error verifying email, please try again later 😳"),
+	};
+
+	// start transaction
+	match session.start_transaction(None).await {
+		Ok(_) => {}
+		Err(_) => return gen_html("Error verifying email, please try again later 😳"),
+	}
+
 	let updated_doc = db
 		.collection::<User>("users")
-		.find_one_and_update(
+		.find_one_and_update_with_session(
 			doc! { "_id": user_id },
 			doc! { "$set": { email_type: null , "primary_email": opposite_type_label} },
 			Some(update_options),
+			&mut session,
 		)
 		.await;
 
@@ -359,23 +384,30 @@ pub async fn verify_deleting_email(
 				if user.personal_email.is_none() && user.school_email.is_none() {
 					let second_update = db
 						.collection::<User>("users")
-						.find_one_and_update(
+						.find_one_and_update_with_session(
 							doc! { "_id": user_id },
 							doc! { "$set": { "primary_email": "no-email" } },
 							None,
+							&mut session,
 						)
 						.await;
 					match second_update {
-						Ok(_) => return gen_html("Email deleted 🗑"),
-						Err(_) => return gen_html("Error deleting email, please try again later 😳"),
+						Ok(_) => {}
+						Err(_) => {
+							return gen_html("Error deleting email, please try again later 😳")
+						}
 					}
-				} else {
-					return gen_html("do nothing all good");
 				}
 			} else {
-				return gen_html("error");
+				return gen_html("Error deleting email, please try again later 😳");
 			}
 		}
 		Err(_) => return gen_html("error"),
+	}
+	match session.commit_transaction().await {
+		Ok(_) => return gen_html("Email deleted successfully ✅"),
+		Err(_) => {
+			return gen_html("Error deleting email, please try again later 😳");
+		}
 	}
 }
