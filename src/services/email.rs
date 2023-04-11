@@ -66,8 +66,8 @@ pub struct VerificationRequest {
 }
 
 // todo: if the user has already verified the address they're putting into another field, skip email verification?
-#[post("/verify")]
-pub async fn send_verification_email(
+#[get("/verify_link")]
+pub async fn send_verification_email_to_link_email(
 	jwt_secret: web::Data<Vec<u8>>,
 	db: web::Data<Database>,
 	masking_key: web::Data<&'static MaskingKey>,
@@ -305,8 +305,8 @@ pub async fn change_primary_email(
 }
 
 /// Sends a verification email to the address that is to be deleted
-#[delete("/email")]
-pub async fn delete_email(
+#[get("/verify_unlink")]
+pub async fn send_verification_email_to_unlink_email(
 	jwt_secret: web::Data<Vec<u8>>,
 	user: AuthenticatedUser,
 	email_type: web::Json<EmailType>,

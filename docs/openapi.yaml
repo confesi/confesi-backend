@@ -549,3 +549,85 @@ paths:
                       - type: 'null'
                       - type: number
                         minimum: 0
+  /verify_link:
+    get:
+      summary: Fetch a verification link for adding a new email address to a user's account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - email_type
+              properties:
+                email:
+                  type: string
+                email_type:
+                  type: string
+                  enum:
+                    - personal
+                    - school
+      responses:
+        '400':
+          content:
+            application/json:
+              schema:
+                type: 'object'
+                properties:
+                  BadRequest:
+                    type: string
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: string
+                    example: http://localhost:3000/verify_creation/<some_jwt>/
+                  error:
+                    type: string
+                    example: null
+  /verify_unlink:
+    get:
+      summary: Fetch a verification link for removing an email address from a user's account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: string
+              enum:
+                - school
+                - personal
+      responses:
+        '400':
+          content:
+            application/json:
+              schema:
+                type: 'object'
+                properties:
+                  BadRequest:
+                    type: string
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: string
+                    example: http://localhost:3000/verify_deletion/<some_jwt>/
+                  error:
+                    type: string
+                    example: null
