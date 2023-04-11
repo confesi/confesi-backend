@@ -13,7 +13,7 @@ use crate::{
 	to_unexpected,
 	types::{School, User},
 };
-use actix_web::{delete, get, post, put, web, HttpResponse};
+use actix_web::{get, post, put, web, HttpResponse};
 use jsonwebtoken::{
 	decode, encode,
 	errors::{Error, ErrorKind},
@@ -178,7 +178,8 @@ pub async fn send_verification_email_to_link_email(
 
 fn gen_html(content: &str) -> HttpResponse {
 	let html = format!(
-		"<html>
+		"<!DOCTYPE html>
+		<html>
 					<head>
 							<title>Email verification</title>
 					</head>
@@ -193,6 +194,8 @@ fn gen_html(content: &str) -> HttpResponse {
 		.body(html)
 }
 
+// todo: should this be a POST request? It's creating a resource, but it needs to be called directly when
+// todo: the link is opened in the browswer, which initiates a GET request.
 #[get("/verify_creation/{token}/")]
 pub async fn verify_email(
 	jwt_secret: web::Data<Vec<u8>>,
@@ -318,7 +321,7 @@ pub async fn send_verification_email_to_unlink_email(
 		exp: (chrono::Utc::now() + chrono::Duration::seconds(EMAIL_VERIFICATION_LINK_EXPIRATION))
 			.timestamp() as usize,
 	};
-	match create_jwt(&claims, jwt_secret.get_ref()) {
+	match create_jwt(&claims, jwt_secret.as_ref()) {
 		Ok(token) => {
 			success(format!("http://{}/verify_deletion/{}/", HOST, token)) // todo: send email here
 		}
@@ -329,6 +332,8 @@ pub async fn send_verification_email_to_unlink_email(
 	}
 }
 
+// todo: should this be a POST request? It's creating a resource, but it needs to be called directly when
+// todo: the link is opened in the browswer, which initiates a GET request.
 #[get("/verify_deletion/{token}/")]
 pub async fn verify_deleting_email(
 	db: web::Data<Database>,
@@ -406,7 +411,7 @@ pub async fn verify_deleting_email(
 				return gen_html("Error deleting email, please try again later 😳");
 			}
 		}
-		Err(_) => return gen_html("error"),
+		Err(_) => return gen_html("Error deleting email, please try again later 😳"),
 	}
 	match session.commit_transaction().await {
 		Ok(_) => return gen_html("Email deleted successfully ✅"),
