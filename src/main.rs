@@ -188,8 +188,8 @@ fn open_geoip_database() -> Result<GeoIpReader, Box<dyn Error>> {
 async fn main() -> Result<(), Box<dyn Error>> {
 	env_logger::init_from_env(env_logger::Env::default());
 
-	let jwt_secret = env::var("JWT_SECRET")
-		.expect("JWT_SECRET environment variable not set")
+	let email_verifiction_secret = env::var("EMAIL_VERIFICTION_SECRET")
+		.expect("EMAIL_VERIFICTION_SECRET environment variable not set")
 		.into_bytes();
 
 
@@ -244,7 +244,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.app_data(web::Data::new(db.clone()))
 			.app_data(web::Data::new(geoip_reader))
 			.app_data(web::Data::new(masking_key))
-			.app_data(web::Data::new(jwt_secret.clone()))
+			.app_data(web::Data::new(email_verifiction_secret.clone()))
 			.service(services::schools_list)
 			.service(services::auth::login)
 			.service(services::auth::logout)

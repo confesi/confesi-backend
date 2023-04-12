@@ -549,7 +549,7 @@ paths:
                       - type: 'null'
                       - type: number
                         minimum: 0
-  /verify_link:
+  /verify-link:
     get:
       summary: Fetch a verification link for adding a new email address to a user's account
       requestBody:
@@ -590,11 +590,11 @@ paths:
                 properties:
                   value:
                     type: string
-                    example: http://localhost:3000/verify_creation/<some_jwt>/
+                    example: http://localhost:3000/verify-link/<some_jwt>/
                   error:
                     type: string
                     example: null
-  /verify_unlink:
+  /verify-unlink:
     get:
       summary: Fetch a verification link for removing an email address from a user's account
       requestBody:
@@ -627,7 +627,7 @@ paths:
                 properties:
                   value:
                     type: string
-                    example: http://localhost:3000/verify_deletion/<some_jwt>/
+                    example: http://localhost:3000/verify-unlink/<some_jwt>/
                   error:
                     type: string
                     example: null
@@ -667,7 +667,7 @@ paths:
                     type: string
                   error:
                     type: string
-  /verify_creation/{token}/:
+  /verify-link/{token}/:
     get:
       summary: Verifies the addition of an email to a user's account via opening email link
       parameters:
@@ -693,7 +693,7 @@ paths:
                         <h1 style='text-align: center;'>SOME MESSAGE</h1>
                     </body>
                 </html>
-  /verify_deletion/{token}/:
+  /verify-unlink/{token}/:
     get:
       summary: Verifies the deletion of an email to a user's account via opening email link
       parameters:

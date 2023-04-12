@@ -10,7 +10,7 @@ services:
     environment:
       DB_CONNECT: mongodb://mongo/db?directConnection=true&readConcernLevel=majority
       OID_SECRET:
-      JWT_SECRET:
+      EMAIL_VERIFICTION_SECRET:
       RUST_LOG:
     read_only: true
     init: true

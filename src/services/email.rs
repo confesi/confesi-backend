@@ -1,7 +1,7 @@
 use chrono;
 use log::error;
 use mongodb::bson::{doc, to_bson};
-use mongodb::options::{FindOneAndUpdateOptions, UpdateOptions};
+use mongodb::options::FindOneAndUpdateOptions;
 use mongodb::Client as MongoClient;
 use regex::Regex;
 
@@ -13,7 +13,7 @@ use crate::{
 	to_unexpected,
 	types::{School, User},
 };
-use actix_web::{get, post, put, web, HttpResponse};
+use actix_web::{get, put, web, HttpResponse};
 use jsonwebtoken::{
 	decode, encode,
 	errors::{Error, ErrorKind},
@@ -37,10 +37,6 @@ struct DeletionClaims {
 	exp: usize,
 }
 
-// todo: use .env for JWT secrets?
-// todo: update docs for new routes and alterations to old routes
-// todo: will the jwts work multiple times if you use them fast enough? how do I "expire" them after one use?
-
 fn decode_jwt<T: DeserializeOwned>(token: &str, secret: &[u8]) -> Result<T, Error> {
 	let key = DecodingKey::from_secret(secret);
 	let decoded = decode::<T>(token, &key, &Validation::default())?;
@@ -50,6 +46,25 @@ fn decode_jwt<T: DeserializeOwned>(token: &str, secret: &[u8]) -> Result<T, Erro
 fn create_jwt<T: Serialize>(claims: &T, secret: &[u8]) -> Result<String, Error> {
 	let key = EncodingKey::from_secret(secret);
 	encode(&Header::default(), claims, &key).map_err(|err| err.into())
+}
+
+/// Generates a basic HTML webpage with the given text content
+fn gen_html(content: &str) -> HttpResponse {
+	let html = format!(
+		"<!DOCTYPE html>
+		<html>
+					<head>
+							<title>Email verification</title>
+					</head>
+					<body>
+							<h1 style='text-align: center;'>{}</h1>
+					</body>
+			</html>",
+		content
+	);
+	HttpResponse::Ok()
+		.content_type("text/html; charset=utf-8")
+		.body(html)
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -65,29 +80,29 @@ pub struct VerificationRequest {
 	email_type: EmailType,
 }
 
-// todo: if the user has already verified the address they're putting into another field, skip email verification?
-#[get("/verify_link")]
+#[get("/verify-link")]
 pub async fn send_verification_email_to_link_email(
-	jwt_secret: web::Data<Vec<u8>>,
+	email_verifiction_secret: web::Data<Vec<u8>>,
 	db: web::Data<Database>,
 	masking_key: web::Data<&'static MaskingKey>,
 	user: AuthenticatedUser,
 	verification: web::Json<VerificationRequest>,
 ) -> ApiResult<String, ()> {
-	// todo: gmail ignores dots? outlook doesn't? what about other providers? should I force remove dots from the email (or just ignore them)?
+	// todo: some providers ignore the "." in emails, should we do the same? (e.g. "john.doe" and "johndoe" are the same)
 
 	// validate the email
 	let email_matcher = Regex::new(
 		r"(?i)^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
 	)
 	.unwrap();
+
 	if (!email_matcher.is_match(&verification.email)) {
 		return Err(Failure::BadRequest("incorrectly formatted email"));
 	} else if verification.email.contains("+") {
 		return Err(Failure::BadRequest("email can't be an alias"));
 	}
 
-	// if we're trying to verify a school email, make sure the domain is valid
+	// if we're trying to verify a school email, ensure the domain is valid
 	if matches!(verification.email_type, EmailType::School) {
 		let domain = &verification
 			.email
@@ -147,15 +162,15 @@ pub async fn send_verification_email_to_link_email(
 				None
 			)
 			.await
-			.map_err(to_unexpected!("finding a user with THIS TODO"))?,
+			.map_err(to_unexpected!(
+				"finding a user without email for this email type"
+			))?,
 		None
 	) {
 		return Err(Failure::BadRequest(
 			"either your account doesn't exist, or you already have an email of this type",
 		));
 	}
-
-	// todo: check if the user already has a primary/school email, if so, we need to update it
 
 	let claims = VerificationClaims {
 		masked_user_id: masking_key.mask(&user.id),
@@ -165,9 +180,9 @@ pub async fn send_verification_email_to_link_email(
 			.timestamp() as usize,
 	};
 
-	match create_jwt(&claims, jwt_secret.as_ref()) {
+	match create_jwt(&claims, email_verifiction_secret.as_ref()) {
 		Ok(token) => {
-			success(format!("http://{}/verify_creation/{}/", HOST, token)) // todo: send email here
+			success(format!("http://{}/verify-link/{}/", HOST, token)) // todo: send email here
 		}
 		Err(err) => {
 			error!("Error creating JWT: {}", err);
@@ -176,34 +191,17 @@ pub async fn send_verification_email_to_link_email(
 	}
 }
 
-fn gen_html(content: &str) -> HttpResponse {
-	let html = format!(
-		"<!DOCTYPE html>
-		<html>
-					<head>
-							<title>Email verification</title>
-					</head>
-					<body>
-							<h1 style='text-align: center;'>{}</h1>
-					</body>
-			</html>",
-		content
-	);
-	HttpResponse::Ok()
-		.content_type("text/html; charset=utf-8")
-		.body(html)
-}
-
 // todo: should this be a POST request? It's creating a resource, but it needs to be called directly when
 // todo: the link is opened in the browswer, which initiates a GET request.
-#[get("/verify_creation/{token}/")]
+#[get("/verify-link/{token}/")]
 pub async fn verify_email(
-	jwt_secret: web::Data<Vec<u8>>,
+	mongo_client: web::Data<MongoClient>,
+	email_verifiction_secret: web::Data<Vec<u8>>,
 	db: web::Data<Database>,
 	token: web::Path<String>,
 	masking_key: web::Data<&'static MaskingKey>,
 ) -> HttpResponse {
-	let claims = match decode_jwt::<VerificationClaims>(&token, jwt_secret.as_ref()) {
+	let claims = match decode_jwt::<VerificationClaims>(&token, email_verifiction_secret.as_ref()) {
 		Ok(claims) => claims,
 		Err(err) => match err.kind() {
 			ErrorKind::ExpiredSignature => {
@@ -223,6 +221,82 @@ pub async fn verify_email(
 		Err(_) => return gen_html("Error verifying email, please try again later 😳"),
 	};
 
+	// start session
+	let mut session = match mongo_client.start_session(None).await {
+		Ok(session) => session,
+		Err(_) => return gen_html("Error verifying email, please try again later 😳"),
+	};
+
+	// start transaction
+	match session.start_transaction(None).await {
+		Ok(_) => {}
+		Err(_) => return gen_html("Error verifying email, please try again later 😳"),
+	}
+
+	// is the email already in use?
+	if matches!(
+		match db
+			.collection::<User>("users")
+			.find_one_with_session(
+				doc! {
+						"$or": [
+								{ "personal_email": &claims.email },
+								{ "school_email": &claims.email }
+						]
+				},
+				None,
+				&mut session
+			)
+			.await
+		{
+			Ok(user) => user,
+			Err(err) => {
+				error!("Error finding user with email: {}", err);
+				return gen_html("Error verifying email, please try again later 😳");
+			}
+		},
+		Some(_)
+	) {
+		return gen_html("Email already in use 🤨");
+	}
+
+	let empty_field_name = match &claims.email_type {
+		EmailType::Personal => "personal_email",
+		EmailType::School => "school_email",
+	};
+
+	let unmasked_user_id = match masking_key.unmask(&claims.masked_user_id) {
+		Ok(user_id) => user_id,
+		Err(_) => return gen_html("Malformed verification link 🤨"),
+	};
+
+	// does the user already have an email of this type?
+	if matches!(
+		match db
+			.collection::<User>("users")
+			.find_one_with_session(
+				doc! {
+						"$and": [
+								{"_id": unmasked_user_id},
+								{empty_field_name: {"$eq": null}}
+						]
+				},
+				None,
+				&mut session
+			)
+			.await
+		{
+			Ok(user) => user,
+			Err(err) => {
+				error!("Error finding user with email: {}", err);
+				return gen_html("Error verifying email, please try again later 😳");
+			}
+		},
+		None
+	) {
+		return gen_html("You already have an email of this type 🤨");
+	}
+
 	let update_doc = match claims.email_type {
 		EmailType::Personal => doc! {
 				"$set": {
@@ -238,15 +312,10 @@ pub async fn verify_email(
 		},
 	};
 
-	let empty_field_name = match claims.email_type {
-		EmailType::Personal => "personal_email",
-		EmailType::School => "school_email",
-	};
-
 	// update user with newly verified email
 	match db
 		.collection::<User>("users")
-		.update_one(
+		.update_one_with_session(
 			doc! {
 					"$and": [
 							{"_id": user_id},
@@ -255,62 +324,26 @@ pub async fn verify_email(
 			},
 			update_doc,
 			None,
+			&mut session
 		)
 		.await
 	{
-		Ok(result) => {
-		 if result.modified_count == 1 {
-				gen_html("Email verified ✅")
-			} else {
-				gen_html("Email already verified 😅")
+		Ok(_) => {
+			match session.commit_transaction().await {
+				Ok(_) => return gen_html("Email verified ✅"),
+				Err(_) => {
+					return gen_html("Error deleting email, please try again later 😳");
+				}
 			}
-		}
+		},
 		Err(_) => gen_html("Error verifying email, please try again later 😳"),
 	}
 }
 
-// todo: add what type of primary email a user has to their account and what it is so they can fetch it
-
-#[put("/email")]
-pub async fn change_primary_email(
-	db: web::Data<Database>,
-	user: AuthenticatedUser,
-	email_type: web::Json<EmailType>,
-) -> ApiResult<(), ()> {
-	let (not_null_field, update_name) = match &email_type.into_inner() {
-		EmailType::Personal => ("personal_email", "personal"),
-		EmailType::School => ("school_email", "school"),
-	};
-
-	match db
-		.collection::<User>("users")
-		.update_one(
-			doc! {"_id": user.id, not_null_field: { "$ne": null }}, // query
-			doc! {"$set": {"primary_email": update_name}},          // update
-			None,
-		)
-		.await
-	{
-		Ok(result) => {
-			if result.matched_count == 0 {
-				Err(Failure::BadRequest(
-					"this email type doesn't exist for this user",
-				))
-			} else if result.modified_count == 1 {
-				success(())
-			} else {
-				println!("already changed");
-				success(())
-			}
-		}
-		Err(_) => Err(Failure::Unexpected),
-	}
-}
-
 /// Sends a verification email to the address that is to be deleted
-#[get("/verify_unlink")]
+#[get("/verify-unlink")]
 pub async fn send_verification_email_to_unlink_email(
-	jwt_secret: web::Data<Vec<u8>>,
+	email_verifiction_secret: web::Data<Vec<u8>>,
 	user: AuthenticatedUser,
 	email_type: web::Json<EmailType>,
 	masking_key: web::Data<&'static MaskingKey>,
@@ -321,9 +354,9 @@ pub async fn send_verification_email_to_unlink_email(
 		exp: (chrono::Utc::now() + chrono::Duration::seconds(EMAIL_VERIFICATION_LINK_EXPIRATION))
 			.timestamp() as usize,
 	};
-	match create_jwt(&claims, jwt_secret.as_ref()) {
+	match create_jwt(&claims, email_verifiction_secret.as_ref()) {
 		Ok(token) => {
-			success(format!("http://{}/verify_deletion/{}/", HOST, token)) // todo: send email here
+			success(format!("http://{}/verify-unlink/{}/", HOST, token)) // todo: send email here
 		}
 		Err(err) => {
 			error!("Error creating JWT: {}", err);
@@ -334,15 +367,15 @@ pub async fn send_verification_email_to_unlink_email(
 
 // todo: should this be a POST request? It's creating a resource, but it needs to be called directly when
 // todo: the link is opened in the browswer, which initiates a GET request.
-#[get("/verify_deletion/{token}/")]
+#[get("/verify-unlink/{token}/")]
 pub async fn verify_deleting_email(
 	db: web::Data<Database>,
-	jwt_secret: web::Data<Vec<u8>>,
+	email_verifiction_secret: web::Data<Vec<u8>>,
 	mongo_client: web::Data<MongoClient>,
 	token: web::Path<String>,
 	masking_key: web::Data<&'static MaskingKey>,
 ) -> HttpResponse {
-	let claims = match decode_jwt::<DeletionClaims>(&token, jwt_secret.as_ref()) {
+	let claims = match decode_jwt::<DeletionClaims>(&token, email_verifiction_secret.as_ref()) {
 		Ok(claims) => claims,
 		Err(err) => match err.kind() {
 			ErrorKind::ExpiredSignature => {
@@ -418,5 +451,38 @@ pub async fn verify_deleting_email(
 		Err(_) => {
 			return gen_html("Error deleting email, please try again later 😳");
 		}
+	}
+}
+
+#[put("/email")]
+pub async fn change_primary_email(
+	db: web::Data<Database>,
+	user: AuthenticatedUser,
+	email_type: web::Json<EmailType>,
+) -> ApiResult<(), ()> {
+	let (not_null_field, update_name) = match &email_type.into_inner() {
+		EmailType::Personal => ("personal_email", "personal"),
+		EmailType::School => ("school_email", "school"),
+	};
+
+	// does the user have an email of this type? If so, update their primary email to it
+	match db
+		.collection::<User>("users")
+		.update_one(
+			doc! {"_id": user.id, not_null_field: { "$ne": null }}, // query
+			doc! {"$set": {"primary_email": update_name}},          // update
+			None,
+		)
+		.await
+	{
+		Ok(result) => {
+			if result.matched_count == 0 {
+				return Err(Failure::BadRequest(
+					"user doesn't have this type of email set",
+				));
+			}
+			success(())
+		}
+		Err(_) => Err(Failure::Unexpected),
 	}
 }
