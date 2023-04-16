@@ -1,6 +1,7 @@
 use actix_web::http::StatusCode;
 use actix_web::post;
 use actix_web::web;
+use bcrypt;
 use log::{
 	debug,
 	error,
@@ -48,11 +49,11 @@ use crate::types::{
 	User,
 	Username,
 };
-use crate::util::hash;
 
 #[derive(Deserialize)]
 pub struct Credentials {
 	username: Username,
+	password: String,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -79,12 +80,14 @@ pub struct NewSession {
 #[derive(Debug, Serialize)]
 pub enum LoginError {
 	UsernameNotFound,
+	AuthenticationFailed,
 }
 
 impl ApiError for LoginError {
 	fn status_code(&self) -> StatusCode {
 		match self {
 			Self::UsernameNotFound => StatusCode::BAD_REQUEST,
+			Self::AuthenticationFailed => StatusCode::UNAUTHORIZED,
 		}
 	}
 }
@@ -117,6 +120,13 @@ pub async fn login(
 		.await
 		.map_err(to_unexpected!("Finding user failed"))?
 		.ok_or(Failure::Expected(LoginError::UsernameNotFound))?;
+
+	let plain = &credentials.password;
+	let hashed = &user.password;
+	let matched = bcrypt::verify(plain, hashed).map_err(to_unexpected!("[ERROR] bcrypt failed"))?;
+	if !matched {
+		return Err(Failure::Expected(LoginError::AuthenticationFailed));
+	}
 
 	let token = SessionToken::generate();
 
@@ -183,7 +193,8 @@ pub async fn register(
 		.ok_or(Failure::BadRequest("invalid school id"))?;
 
 	// hash and save
-	let hashed_password = hash::hash_password(&new_user.password)
+	let cost = 10;
+	let hashed_password = bcrypt::hash(&new_user.password, cost)
 		.map_err(to_unexpected!("[ERROR] hasing user password"))?;
 
 	let users = db.collection::<Document>("users");

@@ -81,6 +81,7 @@ pub struct User {
 	pub school_id: String,
 	// Watched universities of the user
 	pub watched_school_ids: Vec<String>,
+	pub password: String,
 }
 
 #[derive(Deserialize, Serialize)]
