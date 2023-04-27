@@ -151,6 +151,12 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 				.build(),
 			None,
 		),
+		reports.create_index(
+			IndexModel::builder()
+				.keys(doc! {"sequential_id": 1})
+				.build(),
+			None,
+		),
 	)?;
 
 	Ok(())
@@ -234,6 +240,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::delete_watched)
 			.service(services::reports::remove_post)
 			.service(services::reports::report_post)
+			.service(services::reports::get_reported_posts)
+			.service(services::reports::get_reports_from_post)
 	})
 	.bind(("0.0.0.0", 3000))?
 	.run()
