@@ -123,6 +123,7 @@ pub enum ReportCategory {
 
 #[derive(Deserialize, Serialize)]
 pub struct Report {
+	pub sequantial_id: i32,
 	pub post: ObjectId,
 	pub user: ObjectId,
 	pub reason: String,

@@ -1,19 +1,28 @@
 use actix_web::http::StatusCode;
 use actix_web::web;
 use actix_web::{get, put};
-use log::{error, debug};
+use futures::TryStreamExt;
+use log::{debug, error};
 use mongodb::bson::doc;
+use mongodb::bson::oid::ObjectId;
 use mongodb::error::{ErrorKind, WriteFailure};
+use mongodb::options::FindOptions;
 use mongodb::{Client as MongoClient, Database};
 use serde::{Deserialize, Serialize};
 
 use crate::api_types::{failure, success, ApiError, ApiResult, Failure};
 use crate::auth::AuthenticatedUser;
 use crate::masked_oid::{self, MaskedObjectId, MaskingKey};
+use crate::services::posts::Votes;
 use crate::types::{Post, Report, ReportCategory};
 use crate::{conf, to_unexpected};
 
+use super::posts::Detail;
+
 // todo: make for comments & posts
+// todo: ensure routes that need admin access have it
+// todo: update new docs and old docs that got changed by this
+// todo: add/update required indices
 
 #[derive(Debug, Serialize)]
 pub enum ReportError {
@@ -51,6 +60,27 @@ pub async fn report_post(
 		.unmask(&post_id)
 		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
 
+	let next_sequential_id = db
+		.collection::<Report>("reports")
+		.aggregate(
+			[
+				doc! {"$sort": {"sequential_id": -1}},
+				doc! {"$limit": 1},
+				doc! {"$project": {"_id": false, "sequential_id": true}},
+			],
+			None,
+		)
+		.await
+		.map_err(to_unexpected!(
+			"Getting next reports sequential id cursor failed"
+		))?
+		.try_next()
+		.await
+		.map_err(to_unexpected!("Getting next report's sequential id failed"))?
+		.map(|doc| doc.get_i32("sequential_id").unwrap())
+		.unwrap_or(0)
+		+ 1;
+
 	let mut session = mongo_client
 		.start_session(None)
 		.await
@@ -65,6 +95,7 @@ pub async fn report_post(
 		.collection::<Report>("reports")
 		.insert_one_with_session(
 			Report {
+				sequantial_id: next_sequential_id,
 				post: post_id,
 				reason: report.reason.clone(),
 				category: report.category.clone(),
@@ -116,16 +147,132 @@ pub async fn report_post(
 	};
 }
 
+#[derive(Deserialize)]
+pub struct ListReportsRequest {
+	seen: Vec<MaskedObjectId>,
+	min_reports: u32,
+	show_removed: bool,
+}
+
+#[derive(Serialize)]
+pub struct ReportedPostDetail {
+	post: Detail,
+	reports: i32,
+	removed: bool,
+}
+
 #[get("/posts/reports/")]
 pub async fn get_reported_posts(
 	db: web::Data<Database>,
 	masking_key: web::Data<&'static MaskingKey>,
-	post_id: web::Path<MaskedObjectId>,
-) -> ApiResult<(), ()> {
-	success(())
+	request: web::Path<ListReportsRequest>,
+) -> ApiResult<Vec<ReportedPostDetail>, ()> {
+	let unmasked_seen: Vec<ObjectId> = request
+		.seen
+		.iter()
+		.map(|masked_id| {
+			masking_key
+				.unmask(masked_id)
+				.map_err(|_| Failure::BadRequest("bad masked id"))
+		})
+		.collect::<Result<Vec<_>, _>>()?;
+	let reports = db
+		.collection::<Post>("posts")
+		.find(
+			doc! {
+					"reports": { "$gt": request.min_reports },
+					"removed": { "$ne": request.show_removed },
+					"_id": { "$nin": unmasked_seen }
+			},
+			FindOptions::builder()
+				.sort(doc! {"reports": -1})
+				.limit(i64::from(conf::REPORTED_POSTS_PAGE_SIZE))
+				.build(),
+		)
+		.await
+		.map_err(to_unexpected!("Getting reports cursor failed"))?
+		.map_ok(|post| {
+			Ok(ReportedPostDetail {
+				post: Detail {
+					id: masking_key.mask(&post.id),
+					sequential_id: masking_key
+						.mask_sequential(u64::try_from(post.sequential_id).unwrap()),
+					reply_context: None,
+					text: post.text,
+					created_at: (post
+						.id
+						.timestamp()
+						.try_to_rfc3339_string()
+						.map_err(to_unexpected!("Formatting post timestamp failed"))?),
+					votes: Votes {
+						up: u32::try_from(post.votes_up).unwrap(),
+						down: u32::try_from(post.votes_down).unwrap(),
+					},
+				},
+				removed: post.removed,
+				reports: post.reports,
+			})
+		})
+		.try_collect::<Vec<Result<ReportedPostDetail, Failure<()>>>>()
+		.await
+		.map_err(to_unexpected!("Getting posts failed"))?
+		.into_iter()
+		.collect::<Result<Vec<ReportedPostDetail>, Failure<()>>>()?;
+	success(reports)
 }
 
-// todo: make admin-only
+#[derive(Serialize)]
+pub struct ReportDetailItem {
+	reason: String,
+	category: ReportCategory,
+}
+
+#[derive(Serialize)]
+pub struct ReportDetail {
+	reports: Vec<ReportDetailItem>,
+	next: Option<i32>,
+}
+
+#[get("/posts/reports/{post_id}")]
+pub async fn get_reports_from_post(
+	db: web::Data<Database>,
+	masking_key: web::Data<&'static MaskingKey>,
+	post_id: web::Path<MaskedObjectId>,
+	next: web::Query<u32>,
+) -> ApiResult<Box<ReportDetail>, ()> {
+	let post_id = masking_key
+		.unmask(&post_id)
+		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
+	let mut last_sequential_id: Option<i32> = None;
+	let reports = db
+		.collection::<Report>("reports")
+		.find(
+			doc! {"post": post_id, "sequential_id": { "$gt": &*next }},
+			FindOptions::builder()
+				.sort(doc! {"sequential_id": -1})
+				.limit(i64::from(conf::REPORT_DETAILS_PAGE_SIZE))
+				.build(),
+		)
+		.await
+		.map_err(to_unexpected!("Getting reports cursor failed"))?
+		.map_ok(|report| {
+			last_sequential_id = Some(report.sequantial_id);
+			Ok(ReportDetailItem {
+				reason: report.reason,
+				category: report.category,
+			})
+		})
+		.try_collect::<Vec<Result<ReportDetailItem, Failure<()>>>>()
+		.await
+		.map_err(to_unexpected!("Getting posts failed"))?
+		.into_iter()
+		.collect::<Result<Vec<ReportDetailItem>, Failure<()>>>()?;
+	success(Box::new(ReportDetail {
+		reports,
+		next: last_sequential_id,
+	}))
+}
+
 #[put("/posts/{post_id}/remove")]
 pub async fn remove_post(
 	db: web::Data<Database>,
@@ -133,7 +280,6 @@ pub async fn remove_post(
 	removed: web::Json<bool>,
 	post_id: web::Path<MaskedObjectId>,
 ) -> ApiResult<(), ()> {
-	// Unmask the ID, in order for it to be used for querying.
 	let post_id = masking_key
 		.unmask(&post_id)
 		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
