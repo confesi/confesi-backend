@@ -86,6 +86,8 @@ pub struct Post {
 	pub votes_down: i32,
 	pub absolute_score: i32,
 	pub trending_score: f64,
+	pub removed: bool,
+	pub reports: i32,
 }
 
 /// The various years of study the creator of a post can be.
@@ -100,6 +102,31 @@ pub enum PosterYearOfStudy {
 	Graduate,
 	PhD,
 	Alumni,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum ReportCategory {
+	Spam,
+	IdentifyingInformation,
+	SelfHarmOrSuicide,
+	Illegal,
+	Discriminatory,
+	Mean,
+	ChildRelated,
+	NSFW,
+	Violent,
+	FalseInformation,
+	JustDislikeIt,
+	Other,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct Report {
+	pub post: ObjectId,
+	pub user: ObjectId,
+	pub reason: String,
+	pub category: ReportCategory,
 }
 
 /// The various faculties the creator of a post can be associated with.

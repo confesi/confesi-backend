@@ -15,6 +15,9 @@ pub const POST_MAX_SIZE: usize = 1000;
 /// The maximum length of a comment in UTF-8 bytes.
 pub const COMMENT_MAX_SIZE: usize = 500;
 
+/// The maximum length of a report reason in UTF-8 bytes.
+pub const REPORT_REASON_MAX_SIZE: usize = 500;
+
 /// The maximum length of a username.
 pub const USERNAME_MAX_LENGTH: usize = 32;
 

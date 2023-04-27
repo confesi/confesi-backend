@@ -22,6 +22,7 @@ use mongodb::options::{
 	Collation, CollationStrength, IndexOptions, ReadConcernLevel, UpdateOptions,
 };
 use mongodb::{Client as MongoClient, Database, IndexModel};
+use types::Report;
 use std::env;
 use std::error::Error;
 use std::fs::File;
@@ -38,6 +39,7 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 	let sessions = db.collection::<Session>("sessions");
 	let posts = db.collection::<Post>("posts");
 	let votes = db.collection::<Vote>("votes");
+	let reports = db.collection::<Report>("reports");
 
 	try_join!(
 		users.create_index(
@@ -142,6 +144,13 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 				.build(),
 			None,
 		),
+		reports.create_index(
+			IndexModel::builder()
+				.keys(doc! {"post": 1, "user": 1})
+				.options(IndexOptions::builder().unique(true).build())
+				.build(),
+			None,
+		),
 	)?;
 
 	Ok(())
@@ -224,6 +233,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::add_watched)
 			.service(services::profile::delete_watched)
 			.service(services::reports::remove_post)
+			.service(services::reports::report_post)
 	})
 	.bind(("0.0.0.0", 3000))?
 	.run()

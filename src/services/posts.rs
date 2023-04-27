@@ -76,7 +76,11 @@ pub async fn get_single_post(
 	// if everything works.
 	match possible_post {
 		Ok(possible_post) => match possible_post {
-			Some(found_post) => post = found_post,
+			Some(found_post) => if found_post.removed {
+				return Err(Failure::BadRequest("post removed"));
+			} else {
+				post = found_post;
+			},
 			None => return Err(Failure::BadRequest("no post found for this id")),
 		},
 		Err(_) => return Err(Failure::Unexpected),
@@ -104,7 +108,7 @@ pub async fn list(
 	masking_key: web::Data<&'static MaskingKey>,
 	query: web::Query<ListQuery>,
 ) -> ApiResult<Box<[Detail]>, ()> {
-	let find_query;
+	let mut find_query;
 	let sort;
 
 	match &*query {
@@ -128,6 +132,8 @@ pub async fn list(
 			sort = doc! {"trending_score": -1};
 		}
 	}
+
+	find_query.insert("removed", false);
 
 	let posts = db
 		.collection::<Post>("posts")
@@ -191,6 +197,8 @@ pub async fn create(
 		"votes_down": 0,
 		"absolute_score": 0,
 		"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
+		"removed": false,
+		"reports": 0,
 	};
 	let mut attempt = 0;
 	let insertion = loop {
