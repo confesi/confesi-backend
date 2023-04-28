@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 
+use actix_web::http::StatusCode;
 use actix_web::web;
 use actix_web::{
 	get,
@@ -37,7 +38,7 @@ use serde::{
 use crate::api_types::{
 	success,
 	ApiResult,
-	Failure,
+	Failure, ApiError, failure,
 };
 use crate::auth::AuthenticatedUser;
 use crate::conf;
@@ -74,6 +75,19 @@ pub struct Detail {
 	pub votes: Votes,
 }
 
+#[derive(Debug, Serialize)]
+pub enum FetchPostError {
+	PostRemoved,
+}
+
+impl ApiError for FetchPostError {
+	fn status_code(&self) -> StatusCode {
+		match self {
+			Self::PostRemoved => StatusCode::CONFLICT,
+		}
+	}
+}
+
 #[derive(Deserialize)]
 #[serde(tag = "sort", rename_all = "kebab-case")]
 pub enum ListQuery {
@@ -97,7 +111,7 @@ pub async fn get_single_post(
 	db: web::Data<Database>,
 	masking_key: web::Data<&'static MaskingKey>,
 	post_id: web::Path<MaskedObjectId>,
-) -> ApiResult<Box<Detail>, ()> {
+) -> ApiResult<Box<Detail>, FetchPostError> {
 	// Unmask the ID, in order for it to be used for querying.
 	let post_id = masking_key
 		.unmask(&post_id)
@@ -112,7 +126,11 @@ pub async fn get_single_post(
 	// if everything works.
 	match possible_post {
 		Ok(possible_post) => match possible_post {
-			Some(found_post) => post = found_post,
+			Some(found_post) => if found_post.removed {
+				return failure(FetchPostError::PostRemoved)
+			} else {
+				post = found_post;
+			},
 			None => return Err(Failure::BadRequest("no post found for this id")),
 		},
 		Err(_) => return Err(Failure::Unexpected),
@@ -140,7 +158,7 @@ pub async fn list(
 	masking_key: web::Data<&'static MaskingKey>,
 	query: web::Query<ListQuery>,
 ) -> ApiResult<Box<[Detail]>, ()> {
-	let find_query;
+	let mut find_query;
 	let sort;
 
 	match &*query {
@@ -164,6 +182,8 @@ pub async fn list(
 			sort = doc! {"trending_score": -1};
 		}
 	}
+
+	find_query.insert("removed", false);
 
 	let posts = db
 		.collection::<Post>("posts")
@@ -227,6 +247,8 @@ pub async fn create(
 		"votes_down": 0,
 		"absolute_score": 0,
 		"trending_score": get_trending_score_time(&DateTime::now()),  // approximate, but will match `_id` exactly with the next vote
+		"removed": false,
+		"reports": 0,
 	};
 	let mut attempt = 0;
 	let insertion = loop {

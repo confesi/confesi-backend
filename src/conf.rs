@@ -9,11 +9,20 @@ pub const SESSION_MIN_TIME_BETWEEN_REFRESH: Duration = Duration::from_secs(3600 
 /// The number of posts to return for each request to a post list.
 pub const POSTS_PAGE_SIZE: u16 = 5;
 
+/// The number of detailed reports to return per page.
+pub const REPORT_DETAILS_PAGE_SIZE: u16 = 5;
+
+/// The number of reported posts to return per page.
+pub const REPORTED_POSTS_PAGE_SIZE: u16 = 5;
+
 /// The maximum length of a post in UTF-8 bytes.
 pub const POST_MAX_SIZE: usize = 1000;
 
 /// The maximum length of a comment in UTF-8 bytes.
 pub const COMMENT_MAX_SIZE: usize = 500;
+
+/// The maximum length of a report reason in UTF-8 bytes.
+pub const REPORT_REASON_MAX_SIZE: usize = 500;
 
 /// The maximum length of a username.
 pub const USERNAME_MAX_LENGTH: usize = 32;

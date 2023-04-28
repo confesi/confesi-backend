@@ -389,7 +389,31 @@ paths:
                     type: string
                   votes:
                     $ref: '#/components/schemas/votes'
-
+        '409':
+          description: This post has been removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: string
+                    enum:
+                      - PostRemoved
+                example:
+                  error: PostRemoved
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+        '500':
+          $ref: '#/components/responses/unexpected'
   /posts/:
     get:
       summary: List posts
@@ -541,3 +565,259 @@ paths:
                       - type: 'null'
                       - type: number
                         minimum: 0
+  /posts/{post_id}/report:
+    put:
+      summary: Reports a post.
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            id:
+              type: string
+              example: some-masked-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+                - category
+              properties:
+                reason:
+                  type: string
+                  example: I don't like this content.
+                category:
+                  type: string
+                  enum:
+                    - spam
+                    - identifying_information
+                    - self_harm_or_suicide
+                    - illegal
+                    - discriminatory
+                    - mean
+                    - child_related
+                    - nsfw
+                    - violent
+                    - false_information
+                    - just_dislike_it
+                    - other
+      responses:
+        '200':
+          description: Successfully reported the post.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: null
+                  value:
+                    type: null
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+        '409':
+          description: This post has already been reported by this user.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: string
+                    enum:
+                      - AlreadyReported
+                example:
+                  error: AlreadyReported
+        '401':
+          $ref: '#/components/responses/unauthenticated'
+        '500':
+          $ref: '#/components/responses/unexpected'
+  /reports/posts/:
+    get:
+      summary: Lists posts based on report-based criteria.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                seen:
+                  type: array
+                  items:
+                    type: string
+                min_reports:
+                  type: integer
+                show_removed:
+                  type: boolean
+              required:
+                - seen
+                - min_reports
+                - show_removed
+            example:
+              seen:
+                - biyKRAO0HIdU8YUqST4B5g
+              min_reports: 0
+              show_removed: true
+      responses:
+        '200':
+          description: Successfully retrieved the list of posts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - value
+                properties:
+                  value:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - sequential_id
+                        - reply_context
+                        - text
+                        - created_at
+                        - votes
+                        - reports
+                        - removed
+                      properties:
+                        id:
+                          $ref: '#/components/schemas/masked-id'
+                        sequential_id:
+                          $ref: '#/components/schemas/masked-sequential-id'
+                        reply_context:
+                          anyOf:
+                            - type: 'null'
+                            - type: object
+                              required:
+                                - id
+                              properties:
+                                id:
+                                  $ref: '#/components/schemas/masked-id'
+                        text:
+                          type: string
+                        created_at:
+                          type: string
+                        votes:
+                          $ref: '#/components/schemas/votes'
+                        reports:
+                          type: integer
+                          example: 4
+                        removed:
+                          type: boolean
+                          example: false
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+        '500':
+          $ref: '#/components/responses/unexpected'
+  /reports/{post_id}/:
+    get:
+      summary: Lists detailed reports for a specific post.
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            id:
+              type: string
+              example: some-masked-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: string
+              example: some-masked-sequential-id or null
+      responses:
+        '200':
+          description: Success response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: null
+                  value:
+                    type: object
+                    properties:
+                      reports:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            reason:
+                              type: string
+                            category:
+                              type: string
+                      next:
+                        type: string
+                        example: some-masked-sequential-id
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+        '500':
+          $ref: '#/components/responses/unexpected'
+  /posts/{post_id}/remove:
+    put:
+      summary: Updates the `removed` status of a post in the database.
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            id:
+              type: string
+              example: some-masked-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: boolean
+              example: true
+      responses:
+        '200':
+          description: Successfully updated the `removed` status of the post.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: null
+                  value:
+                    type: null
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+        '500':
+          $ref: '#/components/responses/unexpected'

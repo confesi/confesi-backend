@@ -9,37 +9,25 @@ mod middleware;
 mod services;
 mod types;
 
-use std::env;
-use std::error::Error;
-use std::fs::File;
-
 use actix_cors::Cors;
 use actix_web::http::header;
 use actix_web::middleware::Logger;
 use actix_web::web;
-use actix_web::{
-	App,
-	HttpServer,
-};
+use actix_web::{App, HttpServer};
 use futures::try_join;
-use log::{
-	info,
-	warn,
-};
+use log::{info, warn};
 use memmap::Mmap;
 use mongodb::bson::doc;
 use mongodb::options::{
-	Collation,
-	CollationStrength,
-	IndexOptions,
-	ReadConcernLevel,
-	UpdateOptions,
+	Collation, CollationStrength, IndexOptions, ReadConcernLevel, UpdateOptions,
 };
-use mongodb::{
-	Client as MongoClient,
-	Database,
-	IndexModel,
-};
+use mongodb::{Client as MongoClient, Database, IndexModel};
+use types::Report;
+use std::env;
+use std::error::Error;
+use std::fs::File;
+
+
 
 use crate::masked_oid::MaskingKey;
 use crate::middleware::HostCheckWrap;
@@ -59,6 +47,7 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 	let sessions = db.collection::<Session>("sessions");
 	let posts = db.collection::<Post>("posts");
 	let votes = db.collection::<Vote>("votes");
+	let reports = db.collection::<Report>("reports");
 
 	try_join!(
 		users.create_index(
@@ -163,6 +152,19 @@ async fn initialize_database(db: &Database) -> mongodb::error::Result<()> {
 				.build(),
 			None,
 		),
+		reports.create_index(
+			IndexModel::builder()
+				.keys(doc! {"post": 1, "user": 1})
+				.options(IndexOptions::builder().unique(true).build())
+				.build(),
+			None,
+		),
+		reports.create_index(
+			IndexModel::builder()
+				.keys(doc! {"sequential_id": 1})
+				.build(),
+			None,
+		),
 	)?;
 
 	Ok(())
@@ -244,6 +246,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			.service(services::profile::get_watched)
 			.service(services::profile::add_watched)
 			.service(services::profile::delete_watched)
+			.service(services::reports::remove_post)
+			.service(services::reports::report_post)
+			.service(services::reports::get_reported_posts)
+			.service(services::reports::get_reports_from_post)
 	})
 	.bind(("0.0.0.0", 3000))?
 	.run()
