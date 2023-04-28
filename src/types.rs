@@ -114,7 +114,7 @@ pub enum ReportCategory {
 	Discriminatory,
 	Mean,
 	ChildRelated,
-	NSFW,
+	Nsfw,
 	Violent,
 	FalseInformation,
 	JustDislikeIt,
@@ -123,7 +123,7 @@ pub enum ReportCategory {
 
 #[derive(Deserialize, Serialize)]
 pub struct Report {
-	pub sequential_id: i32,
+	pub sequential_id: u64,
 	pub post: ObjectId,
 	pub user: ObjectId,
 	pub reason: String,

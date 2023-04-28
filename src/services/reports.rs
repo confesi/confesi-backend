@@ -4,7 +4,7 @@ use actix_web::{get, put};
 use futures::TryStreamExt;
 use log::{debug, error};
 use mongodb::bson::oid::ObjectId;
-use mongodb::bson::{doc, Document};
+use mongodb::bson::{doc, Bson, Document};
 use mongodb::error::{ErrorKind, WriteFailure};
 use mongodb::options::FindOptions;
 use mongodb::{Client as MongoClient, Database};
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::api_types::{failure, success, ApiError, ApiResult, Failure};
 use crate::auth::AuthenticatedUser;
-use crate::masked_oid::{self, MaskedObjectId, MaskingKey};
+use crate::masked_oid::{self, MaskedObjectId, MaskedSequentialId, MaskingKey};
 use crate::services::posts::Votes;
 use crate::types::{Post, Report, ReportCategory};
 use crate::{conf, to_unexpected};
@@ -20,7 +20,6 @@ use crate::{conf, to_unexpected};
 use super::posts::Detail;
 
 // todo: ensure routes that need admin access have it
-// todo: update new docs and old docs that got changed by this
 // todo: add/update required indices
 
 #[derive(Debug, Serialize)]
@@ -76,7 +75,7 @@ pub async fn report_post(
 		.try_next()
 		.await
 		.map_err(to_unexpected!("Getting next report's sequential id failed"))?
-		.map(|doc| doc.get_i32("sequential_id").unwrap())
+		.map(|doc| doc.get_i64("sequential_id").unwrap())
 		.unwrap_or(0)
 		+ 1;
 
@@ -94,7 +93,7 @@ pub async fn report_post(
 		.collection::<Report>("reports")
 		.insert_one_with_session(
 			Report {
-				sequential_id: next_sequential_id,
+				sequential_id: next_sequential_id as u64,
 				post: post_id,
 				reason: report.reason.clone(),
 				category: report.category.clone(),
@@ -155,24 +154,39 @@ pub struct ReportDetailItem {
 #[derive(Serialize)]
 pub struct ReportDetail {
 	reports: Vec<ReportDetailItem>,
-	next: Option<i32>,
+	next: Option<MaskedSequentialId>,
 }
 
+// todo: ensure only admins have access to this
 #[get("/reports/{post_id}/")]
 pub async fn get_reports_from_post(
 	db: web::Data<Database>,
 	masking_key: web::Data<&'static MaskingKey>,
 	post_id: web::Path<MaskedObjectId>,
-	next: web::Json<u32>,
+	next: web::Json<Option<MaskedSequentialId>>,
 ) -> ApiResult<Box<ReportDetail>, ()> {
 	let post_id = masking_key
 		.unmask(&post_id)
 		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
-	let mut last_sequential_id: Option<i32> = None;
+
+	let mut filter = doc! {"post": post_id};
+
+	if let Some(masked_sequential_id) = next.into_inner() {
+		let sequential_id = masking_key
+			.unmask_sequential(&masked_sequential_id)
+			.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked sequential id"))?;
+
+		filter.insert(
+			"sequential_id",
+			doc! {"$gt": Bson::from(sequential_id as i64)},
+		);
+	}
+
+	let mut last_sequential_id: Option<MaskedSequentialId> = None;
 	let reports = db
 		.collection::<Report>("reports")
 		.find(
-			doc! {"post": post_id, "sequential_id": { "$gt": &*next }},
+			filter,
 			FindOptions::builder()
 				.sort(doc! {"sequential_id": 1})
 				.limit(i64::from(conf::REPORT_DETAILS_PAGE_SIZE))
@@ -181,7 +195,8 @@ pub async fn get_reports_from_post(
 		.await
 		.map_err(to_unexpected!("Getting reports cursor failed"))?
 		.map_ok(|report| {
-			last_sequential_id = Some(report.sequential_id);
+			last_sequential_id =
+				Some(masking_key.mask_sequential(report.sequential_id.try_into().unwrap()));
 			Ok(ReportDetailItem {
 				reason: report.reason,
 				category: report.category,
@@ -198,6 +213,7 @@ pub async fn get_reports_from_post(
 	}))
 }
 
+// todo: ensure only admins have access to this
 #[put("/posts/{post_id}/remove")]
 pub async fn remove_post(
 	db: web::Data<Database>,
@@ -246,6 +262,7 @@ pub struct ReportedPostDetail {
 	removed: bool,
 }
 
+// todo: ensure only admins have access to this
 #[get("/reports/posts/")]
 pub async fn get_reported_posts(
 	db: web::Data<Database>,
@@ -268,7 +285,7 @@ pub async fn get_reported_posts(
 	};
 
 	if !request.show_removed {
-			sort.insert("removed", doc! { "$ne": true });
+		sort.insert("removed", doc! { "$ne": true });
 	}
 
 	let reports = db
