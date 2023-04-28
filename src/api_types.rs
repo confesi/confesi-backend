@@ -3,11 +3,22 @@
 use std::fmt;
 
 use actix_web::body::MessageBody;
-use actix_web::http::header::{self, HeaderValue};
+use actix_web::http::header::{
+	self,
+	HeaderValue,
+};
 use actix_web::http::StatusCode;
-use actix_web::{HttpRequest, HttpResponse, Responder, ResponseError};
+use actix_web::{
+	HttpRequest,
+	HttpResponse,
+	Responder,
+	ResponseError,
+};
 use log::error;
-use serde::ser::{SerializeStruct, Serializer};
+use serde::ser::{
+	SerializeStruct,
+	Serializer,
+};
 use serde::Serialize;
 
 pub trait ApiError: Serialize {

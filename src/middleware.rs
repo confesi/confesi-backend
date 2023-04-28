@@ -1,9 +1,19 @@
-use actix_web::dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform};
+use std::future::{
+	ready,
+	Ready,
+};
+
+use actix_web::dev::{
+	forward_ready,
+	Service,
+	ServiceRequest,
+	ServiceResponse,
+	Transform,
+};
 use actix_web::error::ErrorBadRequest;
 use actix_web::http::header;
 use actix_web::Error;
 use futures::future::Either;
-use std::future::{ready, Ready};
 
 /// Permits requests only with the specified `Host` header.
 #[derive(Clone, Copy, Debug)]

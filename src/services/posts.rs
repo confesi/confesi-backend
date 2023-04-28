@@ -1,21 +1,57 @@
 use std::convert::TryFrom;
 
 use actix_web::web;
-use actix_web::{get, post, put};
+use actix_web::{
+	get,
+	post,
+	put,
+};
 use futures::TryStreamExt;
-use log::{debug, error, info};
-use mongodb::bson::{doc, DateTime, Document};
-use mongodb::error::{ErrorKind, WriteFailure};
-use mongodb::options::{FindOneOptions, FindOptions};
-use mongodb::{Client as MongoClient, Database};
-use serde::{Deserialize, Serialize};
+use log::{
+	debug,
+	error,
+	info,
+};
+use mongodb::bson::{
+	doc,
+	DateTime,
+	Document,
+};
+use mongodb::error::{
+	ErrorKind,
+	WriteFailure,
+};
+use mongodb::options::{
+	FindOneOptions,
+	FindOptions,
+};
+use mongodb::{
+	Client as MongoClient,
+	Database,
+};
+use serde::{
+	Deserialize,
+	Serialize,
+};
 
-use crate::api_types::{success, ApiResult, Failure};
+use crate::api_types::{
+	success,
+	ApiResult,
+	Failure,
+};
 use crate::auth::AuthenticatedUser;
 use crate::conf;
-use crate::masked_oid::{self, MaskedObjectId, MaskedSequentialId, MaskingKey};
+use crate::masked_oid::{
+	self,
+	MaskedObjectId,
+	MaskedSequentialId,
+	MaskingKey,
+};
 use crate::to_unexpected;
-use crate::types::{Post, Vote};
+use crate::types::{
+	Post,
+	Vote,
+};
 
 #[derive(Serialize)]
 pub struct ReplyContext {

@@ -1,16 +1,38 @@
+use actix_web::{
+	delete,
+	get,
+	post,
+	put,
+	web,
+};
 use futures::StreamExt;
 use log::error;
-use mongodb::bson::{doc, to_bson, Document};
+use mongodb::bson::{
+	doc,
+	to_bson,
+	Document,
+};
+use mongodb::Database;
+use serde::{
+	Deserialize,
+	Serialize,
+};
 
 use crate::{
-	api_types::{success, ApiResult, Failure},
+	api_types::{
+		success,
+		ApiResult,
+		Failure,
+	},
 	auth::AuthenticatedUser,
 	to_unexpected,
-	types::{PosterFaculty, PosterYearOfStudy, School, User},
+	types::{
+		PosterFaculty,
+		PosterYearOfStudy,
+		School,
+		User,
+	},
 };
-use actix_web::{delete, get, post, put, web};
-use mongodb::Database;
-use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 pub struct UpdatableProfileData {
