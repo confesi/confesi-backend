@@ -389,7 +389,31 @@ paths:
                     type: string
                   votes:
                     $ref: '#/components/schemas/votes'
-
+        '409':
+          description: This post has been removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: string
+                    enum:
+                      - PostRemoved
+                example:
+                  error: PostRemoved
+        '400':
+            content:
+              application/json:
+                schema:
+                  type: 'object'
+                  properties:
+                    BadRequest:
+                      type: string
+        '500':
+          $ref: '#/components/responses/unexpected'
   /posts/:
     get:
       summary: List posts
@@ -601,7 +625,7 @@ paths:
                     BadRequest:
                       type: string
         '409':
-          description: An error occurred while reporting the post.
+          description: This post has already been reported by this user.
           content:
             application/json:
               schema:

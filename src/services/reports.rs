@@ -19,9 +19,6 @@ use crate::{conf, to_unexpected};
 
 use super::posts::Detail;
 
-// todo: ensure routes that need admin access have it
-// todo: add/update required indices
-
 #[derive(Debug, Serialize)]
 pub enum ReportError {
 	AlreadyReported,
@@ -135,6 +132,8 @@ pub async fn report_post(
 		}
 		Err(err) => match err.kind.as_ref() {
 			ErrorKind::Write(WriteFailure::WriteError(err)) if err.code == 11000 => {
+				// Gives a specific error instead of just saying success because the user could have
+				// different parameters when reporting the post the second time
 				failure(ReportError::AlreadyReported)
 			}
 			_ => {
@@ -171,6 +170,8 @@ pub async fn get_reports_from_post(
 
 	let mut filter = doc! {"post": post_id};
 
+	// If the next field has a value, we want to get the next n reports greater than it
+	// Else, we just get the first n reports
 	if let Some(masked_sequential_id) = next.into_inner() {
 		let sequential_id = masking_key
 			.unmask_sequential(&masked_sequential_id)
@@ -224,6 +225,7 @@ pub async fn remove_post(
 	let post_id = masking_key
 		.unmask(&post_id)
 		.map_err(|masked_oid::PaddingError| Failure::BadRequest("bad masked id"))?;
+
 	// Query the database for the post and update it with new `removed` status.
 	let possible_post = db
 		.collection::<Post>("posts")
