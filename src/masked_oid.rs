@@ -18,7 +18,7 @@ use serde::{
 const TYPE_OBJECT_ID: u8 = 0;
 const TYPE_SEQUENTIAL_ID: u8 = 1;
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize, PartialEq)]
 pub struct MaskedObjectId(#[serde(with = "crate::base64_serde")] [u8; 16]);
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -32,6 +32,12 @@ pub struct PaddingError;
 impl fmt::Display for PaddingError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "Invalid id")
+	}
+}
+
+impl fmt::Display for MaskedObjectId {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", base64::encode(&self.0))
 	}
 }
 

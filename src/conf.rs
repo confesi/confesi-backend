@@ -15,6 +15,18 @@ pub const POST_MAX_SIZE: usize = 1000;
 /// The maximum length of a comment in UTF-8 bytes.
 pub const COMMENT_MAX_SIZE: usize = 500;
 
+/// The max depth of a comment thread.
+pub const COMMENT_MAX_DEPTH: usize = 5;
+
+/// The number of comments to return for each request to a comments list.
+pub const COMMENTS_PAGE_SIZE: u16 = 5;
+
+/// The max number of comments to return for each request to build a comment thread
+pub const MAX_REPLYING_COMMENTS_PER_LOAD: u16 = 3;
+
+/// The minimum number of comments to return for each request to build a comment thread (if available).
+pub const MIN_REPLYING_COMMENTS_PER_LOAD_IF_AVAILABLE: u16 = 2;
+
 /// The maximum length of a username.
 pub const USERNAME_MAX_LENGTH: usize = 32;
 

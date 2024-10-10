@@ -92,6 +92,22 @@ pub struct Session {
 }
 
 #[derive(Deserialize)]
+pub struct Comment {
+	#[serde(rename = "_id")]
+	pub id: ObjectId,
+	pub owner: ObjectId,
+	pub parent_post: ObjectId,
+	pub parent_comments: Vec<ObjectId>,
+	pub text: String,
+	pub replies: i32,
+	pub deleted: bool, // specifies whether or not a comment has been deleted, without actually deleting it to prevent messing up the threaded structure
+	pub votes_up: i32,
+	pub votes_down: i32,
+	pub absolute_score: i32,
+	pub trending_score: f64,
+}
+
+#[derive(Deserialize)]
 pub struct Post {
 	#[serde(rename = "_id")]
 	pub id: ObjectId,
@@ -102,6 +118,7 @@ pub struct Post {
 	pub votes_down: i32,
 	pub absolute_score: i32,
 	pub trending_score: f64,
+	pub replies: i32,
 }
 
 /// The various years of study the creator of a post can be.
@@ -143,7 +160,7 @@ pub struct School {
 
 #[derive(Deserialize, Serialize)]
 pub struct Vote {
-	pub post: ObjectId,
+	pub content: ObjectId,
 	pub user: ObjectId,
 	pub value: i32,
 }

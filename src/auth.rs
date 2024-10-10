@@ -16,7 +16,6 @@ use actix_web::{
 	ResponseError,
 };
 use log::{
-	debug,
 	error,
 	warn,
 };
